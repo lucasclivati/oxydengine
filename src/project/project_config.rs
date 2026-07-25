@@ -11,6 +11,34 @@ pub struct ProjectConfig {
     pub thumbnail_path: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectsHistory {
+    pub default_projects_dir: String,
+    pub recent_projects: Vec<ProjectConfig>,
+}
+
+impl ProjectsHistory {
+    pub fn load() -> Self {
+        let root = get_projects_root_dir();
+        let recents = list_available_projects();
+        Self {
+            default_projects_dir: root,
+            recent_projects: recents,
+        }
+    }
+
+    pub fn add_project(&mut self, proj: ProjectConfig) {
+        if !self.recent_projects.iter().any(|p| p.path == proj.path) {
+            self.recent_projects.push(proj.clone());
+        }
+        save_project_to_history(&proj.path);
+    }
+
+    pub fn set_default_dir(&mut self, dir: &str) {
+        self.default_projects_dir = dir.to_string();
+    }
+}
+
 impl ProjectConfig {
     pub fn new(name: &str, path: &str) -> Self {
         let abs_path = normalize_path(path);
@@ -35,6 +63,27 @@ impl ProjectConfig {
         Path::new(&self.path).join("project.oxyd")
     }
 
+    pub fn load_from_dir(path: &str) -> std::io::Result<Self> {
+        let norm_path = normalize_path(path);
+        let p_file = Path::new(&norm_path).join("project.oxyd");
+
+        if p_file.exists() {
+            let content = fs::read_to_string(p_file)?;
+            if let Ok(config) = serde_json::from_str::<ProjectConfig>(&content) {
+                return Ok(config);
+            }
+        }
+
+        let name = Path::new(&norm_path)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Oxyd_Project".to_string());
+
+        let config = Self::new(&name, &norm_path);
+        let _ = config.save();
+        Ok(config)
+    }
+
     pub fn save(&self) -> std::io::Result<()> {
         let dir = Path::new(&self.path);
         if !dir.exists() {
@@ -50,125 +99,117 @@ impl ProjectConfig {
         let content = serde_json::to_string_pretty(self)?;
         fs::write(file_path, content)?;
 
-        // Criar estrutura de pastas do projeto Unreal (Content, Blueprints, Maps, Materials, Meshes, Textures, Decals)
         let content_dir = dir.join("Content");
-        let subfolders = ["Blueprints", "Maps", "Materials", "Meshes", "Textures", "Decals", "VFX_Niagara"];
+        let subfolders = ["Actors", "Maps", "Materials", "Meshes", "Textures", "Decals", "VFX"];
         for folder in subfolders {
             let _ = fs::create_dir_all(content_dir.join(folder));
         }
 
-        // Criar arquivos de mapas de exemplo dentro do projeto
-        let _ = fs::write(content_dir.join("Maps").join("Map_MainMenu.oxydlevel"), r#"{"level_name": "Map_MainMenu"}"#);
-        let _ = fs::write(content_dir.join("Maps").join("Map_Lobby.oxydlevel"), r#"{"level_name": "Map_Lobby"}"#);
-        let _ = fs::write(content_dir.join("Maps").join("Map_Transition.oxydlevel"), r#"{"level_name": "Map_Transition"}"#);
-        let _ = fs::write(content_dir.join("Maps").join("Map_CityZombieSurvival.oxydlevel"), r#"{"level_name": "Map_CityZombieSurvival"}"#);
+        let maps_dir = content_dir.join("Maps");
+        let map_files = ["Map_MainMenu.oxydlevel", "Map_Lobby.oxydlevel", "Map_Transition.oxydlevel", "Map_CityZombieSurvival.oxydlevel"];
+        for map_file in map_files {
+            let p = maps_dir.join(map_file);
+            if !p.exists() {
+                let _ = fs::write(p, format!("{{\"level_name\": \"{}\"}}", map_file));
+            }
+        }
 
         Ok(())
     }
+}
 
-    pub fn load_from_dir(dir_path: &str) -> Result<Self, String> {
-        let abs_dir = normalize_path(dir_path);
+pub fn get_projects_root_dir() -> String {
+    let mut root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    root.push("projects");
+    normalize_path(&root.to_string_lossy())
+}
 
-        let file_path = Path::new(&abs_dir).join("project.oxyd");
-        let content = fs::read_to_string(&file_path)
-            .map_err(|e| format!("Falha ao ler project.oxyd: {}", e))?;
-        let mut config: ProjectConfig = serde_json::from_str(&content)
-            .map_err(|e| format!("Falha ao processar project.oxyd: {}", e))?;
-        
-        let thumb = Path::new(&abs_dir).join("thumbnail.jpg");
-        if thumb.exists() {
-            config.thumbnail_path = Some(normalize_path(&thumb.to_string_lossy()));
-        } else if Path::new("logo.jpg").exists() {
-            config.thumbnail_path = Some("logo.jpg".to_string());
+pub fn list_available_projects() -> Vec<ProjectConfig> {
+    let mut projects = Vec::new();
+    let root = get_projects_root_dir();
+    let root_path = Path::new(&root);
+
+    if !root_path.exists() {
+        let _ = fs::create_dir_all(root_path);
+    }
+
+    let default_proj_dir = root_path.join("AlchemySurvival57old");
+    if !default_proj_dir.exists() {
+        let proj = ProjectConfig::new("AlchemySurvival57old", &normalize_path(&default_proj_dir.to_string_lossy()));
+        let _ = proj.save();
+    }
+
+    if let Ok(entries) = fs::read_dir(root_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let proj_file = path.join("project.oxyd");
+                if proj_file.exists() {
+                    if let Ok(content) = fs::read_to_string(&proj_file) {
+                        if let Ok(config) = serde_json::from_str::<ProjectConfig>(&content) {
+                            projects.push(config);
+                        }
+                    }
+                } else {
+                    let folder_name = path.file_name().unwrap().to_string_lossy();
+                    let config = ProjectConfig::new(&folder_name, &normalize_path(&path.to_string_lossy()));
+                    let _ = config.save();
+                    projects.push(config);
+                }
+            }
         }
-        
-        config.path = abs_dir;
-        Ok(config)
+    }
+
+    let history_file = Path::new("projects_history.json");
+    if history_file.exists() {
+        if let Ok(content) = fs::read_to_string(history_file) {
+            if let Ok(hist_paths) = serde_json::from_str::<Vec<String>>(&content) {
+                for hp in hist_paths {
+                    let path = Path::new(&hp);
+                    if path.exists() && !projects.iter().any(|p| p.path == hp) {
+                        let name = path.file_name().unwrap_or_default().to_string_lossy();
+                        let config = ProjectConfig::new(&name, &hp);
+                        projects.push(config);
+                    }
+                }
+            }
+        }
+    }
+
+    projects.sort_by(|a, b| a.name.cmp(&b.name));
+    projects
+}
+
+pub fn save_project_to_history(path: &str) {
+    let norm = normalize_path(path);
+    let history_file = Path::new("projects_history.json");
+    let mut paths: Vec<String> = Vec::new();
+
+    if history_file.exists() {
+        if let Ok(content) = fs::read_to_string(history_file) {
+            if let Ok(p) = serde_json::from_str::<Vec<String>>(&content) {
+                paths = p;
+            }
+        }
+    }
+
+    if !paths.contains(&norm) {
+        paths.push(norm);
+        if let Ok(content) = serde_json::to_string_pretty(&paths) {
+            let _ = fs::write(history_file, content);
+        }
     }
 }
 
-fn normalize_path(p: &str) -> String {
-    let path = Path::new(p);
-    let s = if let Ok(abs) = path.canonicalize() {
-        abs.to_string_lossy().to_string()
+pub fn normalize_path(path: &str) -> String {
+    let path_buf = PathBuf::from(path);
+    if let Ok(canonical) = fs::canonicalize(&path_buf) {
+        let mut s = canonical.to_string_lossy().to_string();
+        if s.starts_with(r"\\?\") {
+            s = s[4..].to_string();
+        }
+        s.replace('\\', "/")
     } else {
-        p.to_string()
-    };
-
-    s.replace(r"\\?\", "")
-     .replace(r"\\", "/")
-     .replace('\\', "/")
-     .trim_end_matches('/')
-     .to_string()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectsHistory {
-    pub default_projects_dir: String,
-    pub recent_projects: Vec<ProjectConfig>,
-}
-
-impl ProjectsHistory {
-    pub fn load() -> Self {
-        let mut history = if let Ok(content) = fs::read_to_string("projects_history.json") {
-            serde_json::from_str::<ProjectsHistory>(&content).unwrap_or_else(|_| Self::default_history())
-        } else {
-            Self::default_history()
-        };
-
-        history.default_projects_dir = normalize_path(&history.default_projects_dir);
-        history.deduplicate_and_scan();
-        history
-    }
-
-    pub fn default_history() -> Self {
-        let default_dir = normalize_path("projects");
-        
-        // APENAS O PROJETO AlchemySurvival57old
-        let alchemy_proj = ProjectConfig::new("AlchemySurvival57old", &format!("{}/AlchemySurvival57old", default_dir));
-        let _ = alchemy_proj.save();
-
-        let history = Self {
-            default_projects_dir: default_dir,
-            recent_projects: vec![alchemy_proj],
-        };
-        history.save();
-        history
-    }
-
-    pub fn deduplicate_and_scan(&mut self) {
-        let default_dir = self.default_projects_dir.clone();
-        
-        let alchemy_proj = ProjectConfig::new("AlchemySurvival57old", &format!("{}/AlchemySurvival57old", default_dir));
-        let _ = alchemy_proj.save();
-
-        let mut unique: Vec<ProjectConfig> = Vec::new();
-        // Manter estritamente AlchemySurvival57old
-        unique.push(alchemy_proj);
-
-        self.recent_projects = unique;
-        self.save();
-    }
-
-    pub fn save(&self) {
-        if let Ok(content) = serde_json::to_string_pretty(self) {
-            let _ = fs::write("projects_history.json", content);
-        }
-    }
-
-    pub fn add_project(&mut self, proj: ProjectConfig) {
-        let norm_path = normalize_path(&proj.path).to_lowercase();
-        self.recent_projects.retain(|p| normalize_path(&p.path).to_lowercase() != norm_path && p.name != proj.name);
-        
-        let mut clean_proj = proj;
-        clean_proj.path = normalize_path(&clean_proj.path);
-        self.recent_projects.insert(0, clean_proj);
-        self.save();
-    }
-
-    pub fn set_default_dir(&mut self, path: String) {
-        self.default_projects_dir = normalize_path(&path);
-        self.deduplicate_and_scan();
-        self.save();
+        path.replace('\\', "/")
     }
 }

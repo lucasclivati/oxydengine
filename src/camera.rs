@@ -104,7 +104,7 @@ impl CameraController {
         }
     }
 
-    // NAVEGAÇÃO DE VÔO UNREAL ENGINE (Botão Direito + WASD / QE + Mouse Drag)
+    // NAVEGAÇÃO DE VÔO NO VIEWPORT (Botão Direito + WASD / QE + Mouse Drag)
     pub fn process_input(&mut self, ctx: &egui::Context, dt: f32) {
         let input = ctx.input(|i| i.clone());
 

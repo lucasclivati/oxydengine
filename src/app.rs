@@ -126,7 +126,7 @@ impl ApplicationHandler for App {
                 let dt = now.duration_since(self.last_frame).as_secs_f32();
                 self.last_frame = now;
 
-                // NAVEGAÇÃO DE VÔO UNREAL ENGINE NO VIEWPORT (Botão Direito + WASD / QE)
+                // NAVEGAÇÃO DE VÔO NO VIEWPORT (Botão Direito + WASD / QE)
                 if self.mode == AppMode::Editor {
                     renderer.camera_controller.process_input(&renderer.egui_ctx, dt);
                     
@@ -152,6 +152,9 @@ impl ApplicationHandler for App {
                 let mut switch_to_launcher = false;
 
                 let proj_name = active_project.as_ref().map(|p| p.name.as_str()).unwrap_or("AlchemySurvival57old");
+
+                let yaw = renderer.camera_controller.yaw;
+                let pitch = renderer.camera_controller.pitch;
 
                 let full_output = renderer.egui_ctx.run(raw_input, |ctx| {
                     if ctx.input(|i| i.key_pressed(egui::Key::Space) && i.modifiers.ctrl) {
@@ -179,48 +182,32 @@ impl ApplicationHandler for App {
                             .show(ctx, |ui| {
                                 let rect = ui.max_rect();
 
-                                // RENDERIZADOR DO GIZMO DE VETORES DE ORIENTAÇÃO 3D (X, Y, Z) NO CANTO INFERIOR ESQUERDO ESTILO UNREAL ENGINE
-                                let gizmo_origin = egui::pos2(rect.min.x + 45.0, rect.max.y - 45.0);
+                                // DURAÇÃO E ROTAÇÃO DINÂMICA 3D DOS EIXOS XYZ ACOMPANHANDO A CÂMERA
+                                let gizmo_origin = egui::pos2(rect.min.x + 50.0, rect.max.y - 50.0);
                                 let painter = ui.painter();
 
+                                let rot_mat = glam::Mat3::from_euler(glam::EulerRot::YXZ, -yaw - std::f32::consts::FRAC_PI_2, -pitch, 0.0);
+
+                                let dir_x = rot_mat * glam::Vec3::X;
+                                let dir_y = rot_mat * glam::Vec3::Y;
+                                let dir_z = rot_mat * glam::Vec3::Z;
+
+                                let arm_len = 32.0;
+
                                 // Eixo X (Vermelho #EF4444)
-                                painter.line_segment(
-                                    [gizmo_origin, egui::pos2(gizmo_origin.x + 28.0, gizmo_origin.y)],
-                                    egui::Stroke::new(2.5, egui::Color32::from_rgb(239, 68, 68))
-                                );
-                                painter.text(
-                                    egui::pos2(gizmo_origin.x + 34.0, gizmo_origin.y - 6.0),
-                                    egui::Align2::LEFT_TOP,
-                                    "X",
-                                    egui::FontId::proportional(12.0),
-                                    egui::Color32::from_rgb(239, 68, 68)
-                                );
+                                let end_x = egui::pos2(gizmo_origin.x + dir_x.x * arm_len, gizmo_origin.y - dir_x.y * arm_len);
+                                painter.line_segment([gizmo_origin, end_x], egui::Stroke::new(2.5, egui::Color32::from_rgb(239, 68, 68)));
+                                painter.text(end_x, egui::Align2::CENTER_CENTER, "X", egui::FontId::proportional(12.0), egui::Color32::from_rgb(239, 68, 68));
 
                                 // Eixo Y (Verde #22C55E)
-                                painter.line_segment(
-                                    [gizmo_origin, egui::pos2(gizmo_origin.x - 18.0, gizmo_origin.y + 18.0)],
-                                    egui::Stroke::new(2.5, egui::Color32::from_rgb(34, 197, 94))
-                                );
-                                painter.text(
-                                    egui::pos2(gizmo_origin.x - 26.0, gizmo_origin.y + 18.0),
-                                    egui::Align2::RIGHT_TOP,
-                                    "Y",
-                                    egui::FontId::proportional(12.0),
-                                    egui::Color32::from_rgb(34, 197, 94)
-                                );
+                                let end_y = egui::pos2(gizmo_origin.x + dir_y.x * arm_len, gizmo_origin.y - dir_y.y * arm_len);
+                                painter.line_segment([gizmo_origin, end_y], egui::Stroke::new(2.5, egui::Color32::from_rgb(34, 197, 94)));
+                                painter.text(end_y, egui::Align2::CENTER_CENTER, "Y", egui::FontId::proportional(12.0), egui::Color32::from_rgb(34, 197, 94));
 
                                 // Eixo Z (Azul #3B82F6)
-                                painter.line_segment(
-                                    [gizmo_origin, egui::pos2(gizmo_origin.x, gizmo_origin.y - 28.0)],
-                                    egui::Stroke::new(2.5, egui::Color32::from_rgb(59, 130, 246))
-                                );
-                                painter.text(
-                                    egui::pos2(gizmo_origin.x - 4.0, gizmo_origin.y - 40.0),
-                                    egui::Align2::LEFT_TOP,
-                                    "Z",
-                                    egui::FontId::proportional(12.0),
-                                    egui::Color32::from_rgb(59, 130, 246)
-                                );
+                                let end_z = egui::pos2(gizmo_origin.x + dir_z.x * arm_len, gizmo_origin.y - dir_z.y * arm_len);
+                                painter.line_segment([gizmo_origin, end_z], egui::Stroke::new(2.5, egui::Color32::from_rgb(59, 130, 246)));
+                                painter.text(end_z, egui::Align2::CENTER_CENTER, "Z", egui::FontId::proportional(12.0), egui::Color32::from_rgb(59, 130, 246));
 
                                 if !world.is_playing {
                                     match show_main_menu_widget(ui, world) {

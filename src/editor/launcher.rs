@@ -63,7 +63,7 @@ pub fn show_launcher_gui(
     let mut selected_project_to_launch: Option<ProjectConfig> = None;
     let mut switch_lang: Option<&'static str> = None;
 
-    // Top Bar estilo Unreal Hub (Sem o quadrado bugado ao lado da logo!)
+    // Top Bar estilo Oxyd Hub (Sem o quadrado bugado ao lado da logo!)
     egui::TopBottomPanel::top("launcher_top_bar").show(ctx, |ui| {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
@@ -146,7 +146,7 @@ pub fn show_launcher_gui(
                         if ui.add_sized(Vec2::new(180.0, 28.0), egui::Button::new(RichText::new(format!("📁 {}", tr.change_default_dir)).strong())).clicked() {
                             if let Some(folder) = rfd::FileDialog::new().pick_folder() {
                                 let path_str = folder.to_string_lossy().to_string();
-                                state.history.set_default_dir(path_str);
+                                state.history.set_default_dir(&path_str);
                                 state.new_project_path = format!("{}/{}", state.history.default_projects_dir, state.new_project_name);
                             }
                         }
@@ -173,7 +173,7 @@ pub fn show_launcher_gui(
                                 let is_selected = state.selected_project_index == Some(idx);
                                 
                                 let bg_color = if is_selected {
-                                    Color32::from_rgb(0, 110, 210) // Selecionado (Azul Unreal)
+                                    Color32::from_rgb(0, 110, 210) // Selecionado (Azul Oxyd)
                                 } else {
                                     Color32::from_rgb(32, 35, 45)
                                 };
@@ -263,7 +263,7 @@ pub fn show_launcher_gui(
 
                     ui.add_space(8.0);
 
-                    // Seleção de Template de Level (Estilo Unreal Engine Starter Content)
+                    // Seleção de Template de Level (Starter Content)
                     ui.label(RichText::new("Choose Starting Level Template:").strong());
                     ui.horizontal(|ui| {
                         ui.selectable_value(&mut state.selected_template, LevelTemplate::Blank, "🏞️ Blank Level");

@@ -1,14 +1,13 @@
-use egui::{RichText, Color32, Frame, Margin, Rounding, Stroke};
+use egui::{RichText, Color32, Frame, Margin, Rounding, Stroke, Vec2};
 use crate::scene::{World, PrimitiveType};
 use crate::editor::{I18nManager, LayoutSettings};
 
 pub fn show_outliner_panel(
     ctx: &egui::Context,
     world: &mut World,
-    i18n: &I18nManager,
+    _i18n: &I18nManager,
     layout: &mut LayoutSettings,
 ) -> Option<glam::Vec3> {
-    let tr = &i18n.strings;
     let mut camera_focus_target: Option<glam::Vec3> = None;
 
     egui::SidePanel::right("oxyd_outliner_panel")
@@ -16,19 +15,20 @@ pub fn show_outliner_panel(
         .default_width(layout.outliner_width)
         .frame(
             Frame::none()
-                .fill(Color32::from_rgb(26, 28, 34))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(55, 65, 81)))
+                .fill(Color32::from_rgb(18, 20, 26))
+                .stroke(Stroke::new(1.0, Color32::from_rgb(45, 50, 62)))
                 .inner_margin(Margin::same(8.0))
         )
         .show(ctx, |ui| {
-            // Cabeçalho de Aba Estilo UE5 (📑 World Outliner [🗑] [➕])
+            // Cabeçalho de Aba (📑 Map Assets [🗑] [➕])
             Frame::none()
-                .fill(Color32::from_rgb(34, 37, 46))
+                .fill(Color32::from_rgb(26, 29, 38))
                 .rounding(Rounding::same(4.0))
+                .stroke(Stroke::new(1.0, Color32::from_rgb(45, 50, 62)))
                 .inner_margin(Margin::symmetric(10.0, 6.0))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.heading(RichText::new(format!("📑 {}", tr.world_outliner)).color(Color32::WHITE).strong());
+                        ui.heading(RichText::new("📑 Map Assets").color(Color32::WHITE).strong());
                         
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui.small_button("➕").on_hover_text("Add Actor").clicked() {
@@ -51,8 +51,8 @@ pub fn show_outliner_panel(
             ui.horizontal(|ui| {
                 ui.label("🔍");
                 ui.add_sized(
-                    egui::vec2(ui.available_width() - 10.0, 20.0),
-                    egui::TextEdit::singleline(&mut world.search_filter).hint_text("Search Outliner...")
+                    Vec2::new(ui.available_width() - 10.0, 20.0),
+                    egui::TextEdit::singleline(&mut world.search_filter).hint_text("Search Map Assets...")
                 );
             });
 
@@ -60,7 +60,7 @@ pub fn show_outliner_panel(
 
             // Cabeçalho da Tabela (Item Label | Type)
             ui.horizontal(|ui| {
-                ui.add_space(20.0);
+                ui.add_space(24.0);
                 ui.label(RichText::new("Item Label").small().strong().color(Color32::from_rgb(170, 180, 195)));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_space(8.0);
@@ -85,11 +85,11 @@ pub fn show_outliner_panel(
                     let is_selected = selected_id == Some(actor.id);
 
                     let bg_color = if is_selected {
-                        Color32::from_rgb(55, 65, 81)
+                        Color32::from_rgb(45, 52, 68)
                     } else if idx % 2 == 0 {
-                        Color32::from_rgb(26, 28, 34)
+                        Color32::from_rgb(20, 22, 28)
                     } else {
-                        Color32::from_rgb(32, 35, 44)
+                        Color32::from_rgb(24, 27, 35)
                     };
 
                     let icon = match actor.primitive {
@@ -119,10 +119,11 @@ pub fn show_outliner_panel(
 
                     let vis_icon = if actor.visible { "👁" } else { "🚫" };
 
-                    let item_res = Frame::none()
+                    let frame_res = Frame::none()
                         .fill(bg_color)
-                        .rounding(Rounding::same(2.0))
-                        .inner_margin(Margin::symmetric(4.0, 4.0))
+                        .rounding(Rounding::same(3.0))
+                        .stroke(if is_selected { Stroke::new(1.0, Color32::from_rgb(245, 158, 11)) } else { Stroke::NONE })
+                        .inner_margin(Margin::symmetric(6.0, 4.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
                                 if ui.small_button(vis_icon).clicked() {
@@ -131,32 +132,35 @@ pub fn show_outliner_panel(
 
                                 ui.label(icon);
 
+                                // NOME DO ATOR COM ENCOLHIMENTO/TRUNCAÇÃO PARA NUNCA SOBREPOR O TYPE
                                 let text_color = if is_selected { Color32::WHITE } else { Color32::from_rgb(220, 225, 235) };
-                                let avail = ui.available_width() - 80.0;
-                                let btn = egui::Button::new(RichText::new(&actor.name).color(text_color).strong())
-                                    .frame(false);
-                                
-                                let label_res = ui.add_sized(egui::vec2(avail, 20.0), btn);
+                                let name_lbl = ui.add(
+                                    egui::Label::new(RichText::new(&actor.name).color(text_color).strong())
+                                        .truncate(true)
+                                );
 
-                                // CLIQUE COM BOTÃO ESQUERDO DO MOUSE SELECIONA O ATOR
-                                if label_res.clicked() {
+                                if name_lbl.clicked() {
                                     actor_to_select = Some(Some(actor.id));
-                                }
-
-                                // DUPLO-CLIQUE DÁ FOCO COM ENQUADRAMENTO DE DISTÂNCIA AMPLA
-                                if label_res.double_clicked() {
-                                    actor_to_select = Some(Some(actor.id));
-                                    camera_focus_target = Some(actor.transform.position);
                                 }
 
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                    ui.label(RichText::new(type_label).small().color(Color32::from_rgb(140, 150, 165)));
+                                    ui.label(RichText::new(type_label).small().color(Color32::from_rgb(245, 158, 11)));
                                 });
                             });
                         }).response;
 
-                    // CLIQUE COM BOTÃO DIREITO DO MOUSE ABRE MENU DE CONTEXTO
-                    item_res.context_menu(|ui| {
+                    let row_sense = ui.interact(frame_res.rect, ui.make_persistent_id(actor.id), egui::Sense::click());
+
+                    if row_sense.clicked() {
+                        actor_to_select = Some(Some(actor.id));
+                    }
+
+                    if row_sense.double_clicked() {
+                        actor_to_select = Some(Some(actor.id));
+                        camera_focus_target = Some(actor.transform.position);
+                    }
+
+                    row_sense.context_menu(|ui| {
                         if ui.button("🎯 Focus Camera (F)").clicked() {
                             camera_focus_target = Some(actor.transform.position);
                             ui.close_menu();
@@ -175,6 +179,8 @@ pub fn show_outliner_panel(
                             ui.close_menu();
                         }
                     });
+
+                    ui.add_space(2.0);
                 }
             });
 
@@ -216,7 +222,7 @@ pub fn show_outliner_panel(
                 ui.label(RichText::new(format!("{} actors", world.actors.len())).small().color(Color32::GRAY));
                 if world.selected_actor_id.is_some() {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.small_button(format!("❌ {}", tr.clear_selection)).clicked() {
+                        if ui.small_button("❌ Clear Selection").clicked() {
                             world.selected_actor_id = None;
                         }
                     });

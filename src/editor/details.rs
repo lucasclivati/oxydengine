@@ -1,5 +1,5 @@
 use egui::{RichText, Color32, Grid, Slider, Frame, Margin, Rounding, Stroke};
-use crate::scene::{World, PrimitiveType};
+use crate::scene::{World, PrimitiveType, MaterialInstance};
 use crate::editor::{I18nManager, LayoutSettings};
 
 pub fn show_details_panel(
@@ -10,21 +10,22 @@ pub fn show_details_panel(
 ) {
     let tr = &i18n.strings;
 
-    // SidePanel com Borda 1px Nítida (#374151)
+    // SidePanel com Fundo Cinza Escuro (#14161C) idêntico à barra da imagem 1
     egui::SidePanel::right("oxyd_details_panel")
         .resizable(true)
         .default_width(layout.outliner_width)
         .frame(
             Frame::none()
-                .fill(Color32::from_rgb(26, 28, 34))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(55, 65, 81)))
+                .fill(Color32::from_rgb(20, 22, 28))
+                .stroke(Stroke::new(1.0, Color32::from_rgb(50, 55, 68)))
                 .inner_margin(Margin::same(8.0))
         )
         .show(ctx, |ui| {
-            // Cabeçalho de Aba Estilo UE5 (⚙ Details)
+            // Cabeçalho de Aba (⚙ Details)
             Frame::none()
-                .fill(Color32::from_rgb(34, 37, 46))
+                .fill(Color32::from_rgb(28, 31, 40))
                 .rounding(Rounding::same(4.0))
+                .stroke(Stroke::new(1.0, Color32::from_rgb(50, 55, 68)))
                 .inner_margin(Margin::symmetric(10.0, 6.0))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
@@ -51,11 +52,11 @@ pub fn show_details_panel(
 
                 ui.separator();
 
-                // Seção 2: Transformação (Location, Rotation, Scale com Regra de Cadeado UE5)
+                // Seção 2: Transformação (Location, Rotation, Scale com Regra de Cadeado)
                 ui.collapsing(RichText::new(format!("📐 {}", tr.transform)).strong(), |ui| {
                     Grid::new("transform_grid").num_columns(5).spacing([6.0, 6.0]).show(ui, |ui| {
-                        // Location
-                        ui.label(RichText::new("Location").color(Color32::from_rgb(255, 107, 53)).strong());
+                        // Location em Amarelo Ouro (#F59E0B)
+                        ui.label(RichText::new("Location").color(Color32::from_rgb(245, 158, 11)).strong());
                         ui.add(egui::DragValue::new(&mut actor.transform.position.x).speed(0.1).prefix("X: "));
                         ui.add(egui::DragValue::new(&mut actor.transform.position.y).speed(0.1).prefix("Y: "));
                         ui.add(egui::DragValue::new(&mut actor.transform.position.z).speed(0.1).prefix("Z: "));
@@ -70,7 +71,7 @@ pub fn show_details_panel(
                         ui.label("");
                         ui.end_row();
 
-                        // Scale com Regra de Cadeado (Lock Ratio) da Unreal Engine 5
+                        // Scale
                         ui.label(RichText::new("Scale").color(Color32::from_rgb(100, 180, 255)).strong());
 
                         let old_x = actor.transform.scale.x;
@@ -82,11 +83,10 @@ pub fn show_details_panel(
                         let drag_z = ui.add(egui::DragValue::new(&mut actor.transform.scale.z).speed(0.05).prefix("Z: "));
 
                         let lock_icon = if actor.transform.lock_scale_aspect { "🔒" } else { "🔓" };
-                        if ui.button(lock_icon).on_hover_text("Lock Aspect Ratio Scale (Proportional Scale)").clicked() {
+                        if ui.button(lock_icon).on_hover_text("Lock Aspect Ratio Scale").clicked() {
                             actor.transform.lock_scale_aspect = !actor.transform.lock_scale_aspect;
                         }
 
-                        // Se o cadeado estiver ativado, propaga proporcionalmente a escala
                         if actor.transform.lock_scale_aspect {
                             if drag_x.changed() && old_x > 0.001 {
                                 let ratio = actor.transform.scale.x / old_x;
@@ -109,7 +109,65 @@ pub fn show_details_panel(
 
                 ui.separator();
 
-                // Seção 3: Light Components
+                // Seção 3: Material & Material Instance System
+                let is_env_light = matches!(
+                    actor.primitive,
+                    PrimitiveType::PointLight | PrimitiveType::DirectionalLight | PrimitiveType::SkyLight |
+                    PrimitiveType::ExponentialHeightFog | PrimitiveType::SkyAtmosphere | PrimitiveType::VolumetricCloud |
+                    PrimitiveType::CameraActor
+                );
+
+                if !is_env_light {
+                    ui.collapsing(RichText::new("🎨 Material & Material Instance").strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
+                        Grid::new("material_editor_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
+                            ui.label("Material Instance:");
+                            ui.menu_button(RichText::new(&actor.material.name).strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
+                                if ui.button("🎨 MI_AlchemicalRust").clicked() {
+                                    actor.material = MaterialInstance::alchemical_rust();
+                                    actor.color = actor.material.color_tint;
+                                    ui.close_menu();
+                                }
+                                if ui.button("🌿 MI_TerrainGrass").clicked() {
+                                    actor.material = MaterialInstance::terrain_grass();
+                                    actor.color = actor.material.color_tint;
+                                    ui.close_menu();
+                                }
+                                if ui.button("🗿 MI_AncientStone").clicked() {
+                                    actor.material = MaterialInstance::ancient_stone();
+                                    actor.color = actor.material.color_tint;
+                                    ui.close_menu();
+                                }
+                                if ui.button("⚙️ MI_IndustrialMetal").clicked() {
+                                    actor.material = MaterialInstance::industrial_metal();
+                                    actor.color = actor.material.color_tint;
+                                    ui.close_menu();
+                                }
+                            });
+                            ui.end_row();
+
+                            ui.label("Base Color Tint:");
+                            if ui.color_edit_button_rgba_unmultiplied(&mut actor.material.color_tint).changed() {
+                                actor.color = actor.material.color_tint;
+                            }
+                            ui.end_row();
+
+                            ui.label("Metallic:");
+                            ui.add(Slider::new(&mut actor.material.metallic_override, 0.0..=1.0));
+                            ui.end_row();
+
+                            ui.label("Roughness:");
+                            ui.add(Slider::new(&mut actor.material.roughness_override, 0.0..=1.0));
+                            ui.end_row();
+
+                            ui.label("Specular:");
+                            ui.add(Slider::new(&mut actor.material.specular_override, 0.0..=1.0));
+                            ui.end_row();
+                        });
+                    });
+                    ui.separator();
+                }
+
+                // Seção 4: Light Components
                 if actor.primitive == PrimitiveType::DirectionalLight || actor.primitive == PrimitiveType::PointLight || actor.primitive == PrimitiveType::SkyLight {
                     ui.collapsing(RichText::new(format!("💡 Light Component ({:?})", actor.primitive)).strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
                         Grid::new("light_component_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
@@ -125,7 +183,7 @@ pub fn show_details_panel(
                     ui.separator();
                 }
 
-                // Seção 4: Atmosphere Components
+                // Seção 5: Atmosphere Components
                 if let Some(atm) = &mut actor.atmosphere_component {
                     ui.collapsing(RichText::new(format!("☁️ Atmosphere Component ({:?})", actor.primitive)).strong().color(Color32::from_rgb(100, 180, 255)), |ui| {
                         Grid::new("atm_component_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
@@ -164,7 +222,7 @@ pub fn show_details_panel(
                     ui.separator();
                 }
 
-                // Seção 5: Propriedades de Câmeras
+                // Seção 6: Propriedades de Câmeras
                 if let Some(cam) = &mut actor.camera_component {
                     ui.collapsing(RichText::new("🎥 Camera Settings").strong().color(Color32::from_rgb(100, 180, 255)), |ui| {
                         Grid::new("camera_settings_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
@@ -188,7 +246,7 @@ pub fn show_details_panel(
                     ui.separator();
                 }
 
-                // Seção 6: Física 3D & Gravidade
+                // Seção 7: Física 3D & Gravidade
                 ui.collapsing(RichText::new("⚡ Physics & Gravity").strong(), |ui| {
                     ui.checkbox(&mut actor.physics.use_gravity, "Simulate Gravity (-9.8 m/s²)");
                     ui.horizontal(|ui| {
@@ -196,25 +254,6 @@ pub fn show_details_panel(
                         ui.add(egui::DragValue::new(&mut actor.physics.mass).speed(0.1).suffix(" kg"));
                     });
                 });
-
-                ui.separator();
-
-                // Seção 7: Material & Sombreamento
-                let is_env_light = matches!(
-                    actor.primitive,
-                    PrimitiveType::PointLight | PrimitiveType::DirectionalLight | PrimitiveType::SkyLight |
-                    PrimitiveType::ExponentialHeightFog | PrimitiveType::SkyAtmosphere | PrimitiveType::VolumetricCloud |
-                    PrimitiveType::CameraActor
-                );
-
-                if !is_env_light {
-                    ui.collapsing(RichText::new(format!("🎨 {}", tr.material_shading)).strong(), |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(format!("{}:", tr.base_color));
-                            ui.color_edit_button_rgba_unmultiplied(&mut actor.color);
-                        });
-                    });
-                }
 
             } else {
                 ui.vertical_centered(|ui| {

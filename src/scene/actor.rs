@@ -1,6 +1,7 @@
 use glam::Vec3;
 use serde::{Serialize, Deserialize};
 use crate::scene::physics::PhysicsComponent;
+use crate::scene::material::MaterialInstance;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum PrimitiveType {
@@ -85,6 +86,7 @@ pub struct Actor {
     pub primitive: PrimitiveType,
     pub transform: Transform,
     pub color: [f32; 4],
+    pub material: MaterialInstance,
     pub intensity: f32,
     pub visible: bool,
     pub is_visible: bool,
@@ -122,6 +124,9 @@ impl Actor {
             None
         };
 
+        let mut mat = MaterialInstance::default();
+        mat.color_tint = color;
+
         Self {
             id,
             name: name.to_string(),
@@ -133,6 +138,7 @@ impl Actor {
                 lock_scale_aspect: false,
             },
             color,
+            material: mat,
             intensity: 1.0,
             visible: true,
             is_visible: true,
