@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use winit::window::Window;
-use crate::cube::{CubeMesh, Vertex};
+use crate::cube::{CubeMesh, SphereMesh, Vertex};
 use crate::camera::CameraController;
-use crate::scene::World;
+use crate::scene::{World, PrimitiveType};
 use crate::ui::apply_oxyd_theme;
 
 pub struct Renderer {
@@ -15,6 +15,7 @@ pub struct Renderer {
     pub depth_texture: wgpu::Texture,
     pub depth_view: wgpu::TextureView,
     pub cube_mesh: CubeMesh,
+    pub sphere_mesh: SphereMesh,
     pub camera_controller: CameraController,
     pub egui_ctx: egui::Context,
     pub egui_renderer: egui_wgpu::Renderer,
@@ -118,27 +119,30 @@ impl Renderer {
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24Plus,
+                format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
+            multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
         });
 
         let cube_mesh = CubeMesh::new(&device);
+        let sphere_mesh = SphereMesh::new(&device);
 
         let egui_ctx = egui::Context::default();
-        egui_extras::install_image_loaders(&egui_ctx);
         apply_oxyd_theme(&egui_ctx);
-        let egui_renderer = egui_wgpu::Renderer::new(&device, config.format, None, 1, false);
+
+        let egui_renderer = egui_wgpu::Renderer::new(
+            &device,
+            config.format,
+            Some(wgpu::TextureFormat::Depth32Float),
+            1,
+            false,
+        );
 
         Self {
             surface,
@@ -150,6 +154,7 @@ impl Renderer {
             depth_texture,
             depth_view,
             cube_mesh,
+            sphere_mesh,
             camera_controller,
             egui_ctx,
             egui_renderer,
@@ -162,8 +167,8 @@ impl Renderer {
         config: &wgpu::SurfaceConfiguration,
     ) -> (wgpu::Texture, wgpu::TextureView) {
         let size = wgpu::Extent3d {
-            width: config.width,
-            height: config.height,
+            width: config.width.max(1),
+            height: config.height.max(1),
             depth_or_array_layers: 1,
         };
         let desc = wgpu::TextureDescriptor {
@@ -172,7 +177,7 @@ impl Renderer {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth24Plus,
+            format: wgpu::TextureFormat::Depth32Float,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         };
@@ -197,8 +202,8 @@ impl Renderer {
     }
 
     pub fn update(&mut self, dt: f32, world: &mut World) {
-        world.update_simulation(dt);
         self.camera_controller.update(dt);
+        world.update(dt);
     }
 
     pub fn render(
@@ -211,35 +216,32 @@ impl Renderer {
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Main Render Encoder"),
+            label: Some("OxydEngine Render Encoder"),
         });
-
-        for (id, image_delta) in &textures_delta.set {
-            self.egui_renderer.update_texture(&self.device, &self.queue, *id, image_delta);
-        }
 
         let screen_descriptor = egui_wgpu::ScreenDescriptor {
             size_in_pixels: [self.config.width, self.config.height],
             pixels_per_point: self.window.scale_factor() as f32,
         };
 
-        self.egui_renderer.update_buffers(
-            &self.device,
-            &self.queue,
-            &mut encoder,
-            clipped_primitives,
-            &screen_descriptor,
-        );
+        for (id, image_delta) in &textures_delta.set {
+            self.egui_renderer.update_texture(&self.device, &self.queue, *id, image_delta);
+        }
 
-        // Render Pass 3D com fundo azulado frio #181A20 da paleta Rust & Steel
+        // Render Pass 3D
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("3D World Render Pass"),
+                label: Some("3D Scene Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.09, g: 0.10, b: 0.13, a: 1.0 }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.15,
+                            g: 0.16,
+                            b: 0.20,
+                            a: 1.0,
+                        }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -257,10 +259,8 @@ impl Renderer {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_controller.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.cube_mesh.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.cube_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            // Renderizar cada ator visível da cena 3D com suas transformações corretas
+            // Renderizar cada ator visível da cena 3D com a malha 3D correspondente (Esfera ou Cubo)
             for actor in &world.actors {
                 if actor.visible {
                     let rot = glam::Quat::from_euler(
@@ -275,7 +275,16 @@ impl Renderer {
                         actor.transform.position,
                     );
                     self.camera_controller.update_actor_matrix(&self.queue, model);
-                    render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..1);
+
+                    if actor.primitive == PrimitiveType::Sphere {
+                        render_pass.set_vertex_buffer(0, self.sphere_mesh.vertex_buffer.slice(..));
+                        render_pass.set_index_buffer(self.sphere_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                        render_pass.draw_indexed(0..self.sphere_mesh.num_indices, 0, 0..1);
+                    } else {
+                        render_pass.set_vertex_buffer(0, self.cube_mesh.vertex_buffer.slice(..));
+                        render_pass.set_index_buffer(self.cube_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                        render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..1);
+                    }
                 }
             }
         }

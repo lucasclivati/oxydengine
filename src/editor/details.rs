@@ -1,5 +1,5 @@
 use egui::{RichText, Color32, Grid, Slider, Frame, Margin, Rounding, Stroke};
-use crate::scene::{World, PrimitiveType, MaterialInstance};
+use crate::scene::{World, PrimitiveType, MaterialInstance, CollisionPreset};
 use crate::editor::{I18nManager, LayoutSettings};
 
 pub fn show_details_panel(
@@ -109,12 +109,88 @@ pub fn show_details_panel(
 
                 ui.separator();
 
-                // Seção 3: Material & Material Instance System
+                // Seção 3: Decal Component System
+                if let Some(decal) = &mut actor.decal_component {
+                    ui.collapsing(RichText::new("🎯 Decal Component Projector").strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
+                        Grid::new("decal_settings_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
+                            ui.label("Decal Projection Size:");
+                            ui.horizontal(|ui| {
+                                ui.add(egui::DragValue::new(&mut decal.decal_size.x).speed(0.1).prefix("X: "));
+                                ui.add(egui::DragValue::new(&mut decal.decal_size.y).speed(0.1).prefix("Y: "));
+                                ui.add(egui::DragValue::new(&mut decal.decal_size.z).speed(0.1).prefix("Z: "));
+                            });
+                            ui.end_row();
+
+                            ui.label("Blend Mode:");
+                            ui.menu_button(RichText::new(&decal.blend_mode).strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
+                                if ui.button("Translucent").clicked() { decal.blend_mode = "Translucent".to_string(); ui.close_menu(); }
+                                if ui.button("Stain / Dirt").clicked() { decal.blend_mode = "Stain".to_string(); ui.close_menu(); }
+                                if ui.button("Modulate / Color").clicked() { decal.blend_mode = "Modulate".to_string(); ui.close_menu(); }
+                            });
+                            ui.end_row();
+
+                            ui.label("Decal Color Tint:");
+                            ui.color_edit_button_rgba_unmultiplied(&mut actor.color);
+                            ui.end_row();
+
+                            ui.label("Texture / Material:");
+                            ui.text_edit_singleline(&mut decal.texture_name);
+                            ui.end_row();
+
+                            ui.label("Sort Order:");
+                            ui.add(egui::DragValue::new(&mut decal.sort_order));
+                            ui.end_row();
+                        });
+                    });
+                    ui.separator();
+                }
+
+                // Seção 4: Character & Blueprint Component System (ex: Doctor Character)
+                if let Some(ch) = &mut actor.character_component {
+                    ui.collapsing(RichText::new("🏃 Character & Blueprint Component (Doctor)").strong().color(Color32::from_rgb(80, 220, 100)), |ui| {
+                        Grid::new("character_blueprint_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
+                            ui.label("Character Class:");
+                            ui.label(RichText::new(&ch.character_class).strong().color(Color32::from_rgb(245, 158, 11)));
+                            ui.end_row();
+
+                            ui.label("Health (HP):");
+                            ui.add(Slider::new(&mut ch.current_health, 0.0..=ch.max_health));
+                            ui.end_row();
+
+                            ui.label("Max Walk Speed:");
+                            ui.add(egui::DragValue::new(&mut ch.walk_speed).speed(10.0).suffix(" cm/s"));
+                            ui.end_row();
+
+                            ui.label("Jump Z Velocity:");
+                            ui.add(egui::DragValue::new(&mut ch.jump_z_velocity).speed(10.0).suffix(" cm/s"));
+                            ui.end_row();
+
+                            ui.label("Animation State:");
+                            ui.menu_button(RichText::new(&ch.animation_state).strong(), |ui| {
+                                if ui.button("Idle_Alchemist").clicked() { ch.animation_state = "Idle_Alchemist".to_string(); ui.close_menu(); }
+                                if ui.button("Running_Sprint").clicked() { ch.animation_state = "Running_Sprint".to_string(); ui.close_menu(); }
+                                if ui.button("Casting_Flask_Spell").clicked() { ch.animation_state = "Casting_Flask_Spell".to_string(); ui.close_menu(); }
+                            });
+                            ui.end_row();
+
+                            ui.label("Equipped Weapon:");
+                            ui.menu_button(RichText::new(&ch.equipped_weapon).strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
+                                if ui.button("W_AlchemicalFlask").clicked() { ch.equipped_weapon = "W_AlchemicalFlask".to_string(); ui.close_menu(); }
+                                if ui.button("W_DoctorSyringe").clicked() { ch.equipped_weapon = "W_DoctorSyringe".to_string(); ui.close_menu(); }
+                                if ui.button("W_RustSword").clicked() { ch.equipped_weapon = "W_RustSword".to_string(); ui.close_menu(); }
+                            });
+                            ui.end_row();
+                        });
+                    });
+                    ui.separator();
+                }
+
+                // Seção 5: Material & Material Instance System
                 let is_env_light = matches!(
                     actor.primitive,
                     PrimitiveType::PointLight | PrimitiveType::DirectionalLight | PrimitiveType::SkyLight |
                     PrimitiveType::ExponentialHeightFog | PrimitiveType::SkyAtmosphere | PrimitiveType::VolumetricCloud |
-                    PrimitiveType::CameraActor
+                    PrimitiveType::CameraActor | PrimitiveType::DecalActor
                 );
 
                 if !is_env_light {
@@ -167,7 +243,7 @@ pub fn show_details_panel(
                     ui.separator();
                 }
 
-                // Seção 4: Light Components
+                // Seção 6: Light Components
                 if actor.primitive == PrimitiveType::DirectionalLight || actor.primitive == PrimitiveType::PointLight || actor.primitive == PrimitiveType::SkyLight {
                     ui.collapsing(RichText::new(format!("💡 Light Component ({:?})", actor.primitive)).strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
                         Grid::new("light_component_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
@@ -183,7 +259,7 @@ pub fn show_details_panel(
                     ui.separator();
                 }
 
-                // Seção 5: Atmosphere Components
+                // Seção 7: Atmosphere Components
                 if let Some(atm) = &mut actor.atmosphere_component {
                     ui.collapsing(RichText::new(format!("☁️ Atmosphere Component ({:?})", actor.primitive)).strong().color(Color32::from_rgb(100, 180, 255)), |ui| {
                         Grid::new("atm_component_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
@@ -222,7 +298,7 @@ pub fn show_details_panel(
                     ui.separator();
                 }
 
-                // Seção 6: Propriedades de Câmeras
+                // Seção 8: Propriedades de Câmeras
                 if let Some(cam) = &mut actor.camera_component {
                     ui.collapsing(RichText::new("🎥 Camera Settings").strong().color(Color32::from_rgb(100, 180, 255)), |ui| {
                         Grid::new("camera_settings_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
@@ -246,12 +322,40 @@ pub fn show_details_panel(
                     ui.separator();
                 }
 
-                // Seção 7: Física 3D & Gravidade
-                ui.collapsing(RichText::new("⚡ Physics & Gravity").strong(), |ui| {
-                    ui.checkbox(&mut actor.physics.use_gravity, "Simulate Gravity (-9.8 m/s²)");
-                    ui.horizontal(|ui| {
+                // Seção 9: Física 3D, Gravidade & Colisão
+                ui.collapsing(RichText::new("⚡ Physics & Collision").strong(), |ui| {
+                    Grid::new("physics_collision_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
+                        ui.label("Simulate Gravity:");
+                        ui.checkbox(&mut actor.physics.use_gravity, "(-9.8 m/s²)");
+                        ui.end_row();
+
+                        ui.label("Enable Collision:");
+                        ui.checkbox(&mut actor.physics.enable_collision, "Active 3D Colliders");
+                        ui.end_row();
+
+                        ui.label("Collision Preset:");
+                        ui.menu_button(RichText::new(format!("{:?}", actor.physics.collision_preset)).strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
+                            if ui.button("🔴 BlockAll").clicked() {
+                                actor.physics.collision_preset = CollisionPreset::BlockAll;
+                                actor.physics.enable_collision = true;
+                                ui.close_menu();
+                            }
+                            if ui.button("🟡 OverlapAll").clicked() {
+                                actor.physics.collision_preset = CollisionPreset::OverlapAll;
+                                actor.physics.enable_collision = true;
+                                ui.close_menu();
+                            }
+                            if ui.button("⚪ NoCollision").clicked() {
+                                actor.physics.collision_preset = CollisionPreset::NoCollision;
+                                actor.physics.enable_collision = false;
+                                ui.close_menu();
+                            }
+                        });
+                        ui.end_row();
+
                         ui.label("Mass:");
                         ui.add(egui::DragValue::new(&mut actor.physics.mass).speed(0.1).suffix(" kg"));
+                        ui.end_row();
                     });
                 });
 

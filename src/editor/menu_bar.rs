@@ -98,7 +98,7 @@ pub fn show_top_bars(
                     }
                 });
 
-                // Menu Build em Amarelo Ouro (#F59E0B)
+                // Menu Build (Apenas Build Game Executable)
                 ui.menu_button("Build", |ui| {
                     if ui.button(RichText::new("🔨 Build Game Executable (Package Game)...").color(Color32::from_rgb(245, 158, 11)).strong()).clicked() {
                         let build_dir = format!("builds/{}", project_name);
@@ -113,15 +113,12 @@ pub fn show_top_bars(
                         let _ = std::process::Command::new("explorer").arg(&build_dir).spawn();
                         ui.close_menu();
                     }
-                    ui.separator();
-                    ui.label("Build Lighting");
-                    ui.label("Build Navigation Mesh");
-                    ui.label("Build Geometry");
                 });
 
                 // Menu Help
                 ui.menu_button(&tr.help_menu, |ui| {
                     ui.label("Oxyd Engine v0.0.1 - Open Source Game Engine");
+                    ui.label("Copyright 2026 Lucas Antonio Clivati (https://luksdev.web.app)");
                     ui.separator();
                     if ui.button("🌐 GitHub Repository (Open Source)").clicked() {
                         let _ = std::process::Command::new("cmd")
@@ -255,7 +252,7 @@ pub fn show_top_bars(
     style_toolbar.spacing.item_spacing.x = 8.0;
     ctx.set_style(style_toolbar);
 
-    // 3. Sub-toolbar do Viewport
+    // 3. Sub-toolbar do Viewport (💾 Save | 📂 Open Map)
     egui::TopBottomPanel::top("oxyd_viewport_toolbar")
         .frame(
             Frame::none()
@@ -265,26 +262,55 @@ pub fn show_top_bars(
         )
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                if ui.button("💾").on_hover_text("Save Current Level").clicked() {}
-                if ui.button("📂").on_hover_text("Open Content Drawer").clicked() {
-                    layout.active_bottom_tab = if layout.active_bottom_tab == BottomTab::ContentDrawer { BottomTab::None } else { BottomTab::ContentDrawer };
-                    layout.save();
+                if ui.button("💾 Save").on_hover_text("Save Current Level").clicked() {
+                    log::info!("Level saved successfully.");
                 }
+
+                ui.menu_button("📂 Open Map ⏷", |ui| {
+                    if ui.button("🗺️ Map_MainMenu").clicked() {
+                        *world = World::new_main_menu_scene();
+                        layout.open_tabs = vec!["Map_MainMenu".to_string()];
+                        layout.active_tab_index = 0;
+                        layout.save();
+                        ui.close_menu();
+                    }
+                    if ui.button("🗺️ Map_Lobby").clicked() {
+                        *world = World::new_third_person_level();
+                        layout.open_tabs = vec!["Map_Lobby".to_string()];
+                        layout.active_tab_index = 0;
+                        layout.save();
+                        ui.close_menu();
+                    }
+                    if ui.button("🗺️ Map_Transition").clicked() {
+                        *world = World::new_default_scene();
+                        layout.open_tabs = vec!["Map_Transition".to_string()];
+                        layout.active_tab_index = 0;
+                        layout.save();
+                        ui.close_menu();
+                    }
+                    if ui.button("🗺️ Map_CityZombieSurvival").clicked() {
+                        *world = World::new_first_person_level();
+                        layout.open_tabs = vec!["Map_CityZombieSurvival".to_string()];
+                        layout.active_tab_index = 0;
+                        layout.save();
+                        ui.close_menu();
+                    }
+                });
 
                 ui.separator();
 
                 ui.menu_button(RichText::new("🎯 Selection Mode ⏷").strong(), |ui| {
                     ui.set_width(220.0);
 
-                    if ui.selectable_label(true, "🎯  Selection           SHIFT+1").clicked() { ui.close_menu(); }
-                    if ui.selectable_label(false, "🏔️  Landscape           SHIFT+2").clicked() { ui.close_menu(); }
-                    if ui.selectable_label(false, "🌿  Foliage             SHIFT+3").clicked() { ui.close_menu(); }
-                    if ui.selectable_label(false, "🎨  Mesh Paint          SHIFT+4").clicked() { ui.close_menu(); }
-                    if ui.selectable_label(false, "🧊  Modeling            SHIFT+5").clicked() { ui.close_menu(); }
-                    if ui.selectable_label(false, "💥  Fracture            SHIFT+6").clicked() { ui.close_menu(); }
-                    if ui.selectable_label(false, "📦  Brush Editing       SHIFT+7").clicked() { ui.close_menu(); }
-                    if ui.selectable_label(false, "🏃  Animation           SHIFT+8").clicked() { ui.close_menu(); }
-                    if ui.selectable_label(false, "🌐  PCG                 SHIFT+9").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(true, "🎯 Selection            SHIFT+1").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(false, "⛰ Landscape            SHIFT+2").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(false, "🌿 Foliage              SHIFT+3").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(false, "🖌 Mesh Paint           SHIFT+4").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(false, "📦 Modeling             SHIFT+5").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(false, "💥 Fracture             SHIFT+6").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(false, "✏ Brush Editing        SHIFT+7").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(false, "🏃 Animation            SHIFT+8").clicked() { ui.close_menu(); }
+                    if ui.selectable_label(false, "🌐 PCG                  SHIFT+9").clicked() { ui.close_menu(); }
                 });
 
                 ui.separator();
@@ -309,14 +335,30 @@ pub fn show_top_bars(
                         ui.close_menu();
                     }
                     ui.separator();
+                    ui.heading("Characters & Blueprints");
+                    if ui.button("🏃 BP_DoctorCharacter").clicked() {
+                        let id = world.next_actor_id;
+                        world.next_actor_id += 1;
+                        world.actors.push(crate::scene::Actor::new_doctor_character(id, "BP_DoctorCharacter", Vec3::new(0.0, 1.0, 0.0)));
+                        ui.close_menu();
+                    }
+                    ui.separator();
+                    ui.heading("Decals & Visuals");
+                    if ui.button("🎯 Decal Actor (Projector)").clicked() {
+                        let id = world.next_actor_id;
+                        world.next_actor_id += 1;
+                        world.actors.push(crate::scene::Actor::new_decal(id, "Decal_Projector", Vec3::new(0.0, 0.1, 0.0)));
+                        ui.close_menu();
+                    }
+                    ui.separator();
                     ui.heading("Atmosphere & Lights");
-                    if ui.button("☀️ Directional Light").clicked() {
+                    if ui.button("☀ Directional Light").clicked() {
                         let id = world.next_actor_id;
                         world.next_actor_id += 1;
                         world.actors.push(crate::scene::Actor::new_directional_light(id, "DirectionalLight", Vec3::new(0.0, 10.0, 0.0)));
                         ui.close_menu();
                     }
-                    if ui.button("🌫️ Exponential Height Fog").clicked() {
+                    if ui.button("🌫 Exponential Height Fog").clicked() {
                         let id = world.next_actor_id;
                         world.next_actor_id += 1;
                         world.actors.push(crate::scene::Actor::new_fog(id, "ExponentialHeightFog", Vec3::ZERO));
@@ -328,7 +370,7 @@ pub fn show_top_bars(
                         world.actors.push(crate::scene::Actor::new_sky_atmosphere(id, "SkyAtmosphere", Vec3::ZERO));
                         ui.close_menu();
                     }
-                    if ui.button("☁️ Volumetric Cloud").clicked() {
+                    if ui.button("☁ Volumetric Cloud").clicked() {
                         let id = world.next_actor_id;
                         world.next_actor_id += 1;
                         world.actors.push(crate::scene::Actor::new_volumetric_cloud(id, "VolumetricCloud", Vec3::ZERO));

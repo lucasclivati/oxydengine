@@ -28,8 +28,8 @@ impl Vertex {
     }
 }
 
-// 24 Vértices com tons de pedra, pedra alquímica e ferrugem industrial (Sem tons de azul elétrico!)
-pub const VERTICES: &[Vertex] = &[
+// 24 Vértices com tons de pedra, pedra alquímica e ferrugem industrial
+pub const CUBE_VERTICES: &[Vertex] = &[
     // Front face (Ferrugem Alquímica Quente)
     Vertex { position: [-0.5, -0.5,  0.5], color: [0.65, 0.32, 0.22] },
     Vertex { position: [ 0.5, -0.5,  0.5], color: [0.65, 0.32, 0.22] },
@@ -67,7 +67,7 @@ pub const VERTICES: &[Vertex] = &[
     Vertex { position: [-0.5,  0.5, -0.5], color: [0.20, 0.22, 0.26] },
 ];
 
-pub const INDICES: &[u16] = &[
+pub const CUBE_INDICES: &[u16] = &[
     0, 1, 2, 2, 3, 0,       // Front
     4, 5, 6, 6, 7, 4,       // Back
     8, 9, 10, 10, 11, 8,    // Top
@@ -86,20 +86,96 @@ impl CubeMesh {
     pub fn new(device: &wgpu::Device) -> Self {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Cube Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
+            contents: bytemuck::cast_slice(CUBE_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Cube Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
+            contents: bytemuck::cast_slice(CUBE_INDICES),
             usage: wgpu::BufferUsages::INDEX,
         });
 
         Self {
             vertex_buffer,
             index_buffer,
-            num_indices: INDICES.len() as u32,
+            num_indices: CUBE_INDICES.len() as u32,
+        }
+    }
+}
+
+pub struct SphereMesh {
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub num_indices: u32,
+}
+
+impl SphereMesh {
+    pub fn new(device: &wgpu::Device) -> Self {
+        let latitude_bands = 20;
+        let longitude_bands = 20;
+        let radius = 0.5;
+
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        for lat in 0..=latitude_bands {
+            let theta = lat as f32 * std::f32::consts::PI / latitude_bands as f32;
+            let sin_theta = theta.sin();
+            let cos_theta = theta.cos();
+
+            for lon in 0..=longitude_bands {
+                let phi = lon as f32 * 2.0 * std::f32::consts::PI / longitude_bands as f32;
+                let sin_phi = phi.sin();
+                let cos_phi = phi.cos();
+
+                let x = cos_phi * sin_theta;
+                let y = cos_theta;
+                let z = sin_phi * sin_theta;
+
+                // Cor gradiente suave para destacar a curvatura da esfera 3D
+                let r = 0.6 + 0.3 * x;
+                let g = 0.4 + 0.3 * y;
+                let b = 0.2 + 0.3 * z;
+
+                vertices.push(Vertex {
+                    position: [x * radius, y * radius, z * radius],
+                    color: [r, g, b],
+                });
+            }
+        }
+
+        for lat in 0..latitude_bands {
+            for lon in 0..longitude_bands {
+                let first = (lat * (longitude_bands + 1) + lon) as u16;
+                let second = (first + longitude_bands as u16 + 1);
+
+                indices.push(first);
+                indices.push(second);
+                indices.push(first + 1);
+
+                indices.push(second);
+                indices.push(second + 1);
+                indices.push(first + 1);
+            }
+        }
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Sphere Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Sphere Index Buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        Self {
+            vertex_buffer,
+            index_buffer,
+            num_indices: indices.len() as u32,
         }
     }
 }

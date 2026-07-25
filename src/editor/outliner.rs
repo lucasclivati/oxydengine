@@ -2,6 +2,12 @@ use egui::{RichText, Color32, Frame, Margin, Rounding, Stroke, Vec2};
 use crate::scene::{World, PrimitiveType};
 use crate::editor::{I18nManager, LayoutSettings};
 
+enum SelectionAction {
+    Single(u64, usize),
+    Toggle(u64, usize),
+    Range(usize),
+}
+
 pub fn show_outliner_panel(
     ctx: &egui::Context,
     world: &mut World,
@@ -35,9 +41,9 @@ pub fn show_outliner_panel(
                                 world.add_actor("New_Cube", PrimitiveType::Cube, glam::Vec3::ZERO, [0.8, 0.4, 0.2, 1.0]);
                             }
 
-                            if world.selected_actor_id.is_some() {
+                            if !world.selected_actor_ids.is_empty() || world.selected_actor_id.is_some() {
                                 ui.add_space(4.0);
-                                if ui.small_button(RichText::new("🗑").color(Color32::LIGHT_RED)).on_hover_text("Delete Selected Actor").clicked() {
+                                if ui.small_button(RichText::new("🗑").color(Color32::LIGHT_RED)).on_hover_text("Delete Selected Actors").clicked() {
                                     world.delete_selected();
                                 }
                             }
@@ -70,11 +76,13 @@ pub fn show_outliner_panel(
             ui.separator();
 
             let filter = world.search_filter.to_lowercase();
-            let selected_id = world.selected_actor_id;
-            let mut actor_to_select: Option<Option<u64>> = None;
+            let mut selection_action: Option<SelectionAction> = None;
             let mut actor_to_toggle_vis: Option<u64> = None;
             let mut actor_to_duplicate: Option<u64> = None;
             let mut actor_to_delete: Option<u64> = None;
+
+            let ctrl_held = ctx.input(|i| i.modifiers.ctrl);
+            let shift_held = ctx.input(|i| i.modifiers.shift);
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for (idx, actor) in world.actors.iter().enumerate() {
@@ -82,7 +90,7 @@ pub fn show_outliner_panel(
                         continue;
                     }
 
-                    let is_selected = selected_id == Some(actor.id);
+                    let is_selected = world.is_actor_selected(actor.id);
 
                     let bg_color = if is_selected {
                         Color32::from_rgb(45, 52, 68)
@@ -102,6 +110,8 @@ pub fn show_outliner_panel(
                         PrimitiveType::SkyAtmosphere => "🌅",
                         PrimitiveType::VolumetricCloud => "☁️",
                         PrimitiveType::CameraActor => "🎥",
+                        PrimitiveType::DecalActor => "🎯",
+                        PrimitiveType::CharacterBP => "🏃",
                         _ => "📄",
                     };
 
@@ -114,6 +124,8 @@ pub fn show_outliner_panel(
                         PrimitiveType::SkyAtmosphere => "SkyAtmosphere",
                         PrimitiveType::VolumetricCloud => "VolumetricCloud",
                         PrimitiveType::CameraActor => "CameraActor",
+                        PrimitiveType::DecalActor => "DecalActor",
+                        PrimitiveType::CharacterBP => "CharacterBP",
                         _ => "Actor",
                     };
 
@@ -132,7 +144,6 @@ pub fn show_outliner_panel(
 
                                 ui.label(icon);
 
-                                // NOME DO ATOR COM ENCOLHIMENTO/TRUNCAÇÃO PARA NUNCA SOBREPOR O TYPE
                                 let text_color = if is_selected { Color32::WHITE } else { Color32::from_rgb(220, 225, 235) };
                                 let name_lbl = ui.add(
                                     egui::Label::new(RichText::new(&actor.name).color(text_color).strong())
@@ -140,7 +151,13 @@ pub fn show_outliner_panel(
                                 );
 
                                 if name_lbl.clicked() {
-                                    actor_to_select = Some(Some(actor.id));
+                                    if ctrl_held {
+                                        selection_action = Some(SelectionAction::Toggle(actor.id, idx));
+                                    } else if shift_held {
+                                        selection_action = Some(SelectionAction::Range(idx));
+                                    } else {
+                                        selection_action = Some(SelectionAction::Single(actor.id, idx));
+                                    }
                                 }
 
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -152,11 +169,17 @@ pub fn show_outliner_panel(
                     let row_sense = ui.interact(frame_res.rect, ui.make_persistent_id(actor.id), egui::Sense::click());
 
                     if row_sense.clicked() {
-                        actor_to_select = Some(Some(actor.id));
+                        if ctrl_held {
+                            selection_action = Some(SelectionAction::Toggle(actor.id, idx));
+                        } else if shift_held {
+                            selection_action = Some(SelectionAction::Range(idx));
+                        } else {
+                            selection_action = Some(SelectionAction::Single(actor.id, idx));
+                        }
                     }
 
                     if row_sense.double_clicked() {
-                        actor_to_select = Some(Some(actor.id));
+                        selection_action = Some(SelectionAction::Single(actor.id, idx));
                         camera_focus_target = Some(actor.transform.position);
                     }
 
@@ -184,8 +207,12 @@ pub fn show_outliner_panel(
                 }
             });
 
-            if let Some(selection) = actor_to_select {
-                world.selected_actor_id = selection;
+            if let Some(action) = selection_action {
+                match action {
+                    SelectionAction::Single(id, idx) => world.select_single_actor(id, idx),
+                    SelectionAction::Toggle(id, idx) => world.toggle_select_actor(id, idx),
+                    SelectionAction::Range(idx) => world.select_range_actors(idx),
+                }
             }
 
             if let Some(id) = actor_to_toggle_vis {
@@ -204,26 +231,30 @@ pub fn show_outliner_panel(
                     new_actor.name = format!("{}_Copy", new_actor.name);
                     new_actor.transform.position += glam::Vec3::new(1.0, 0.0, 1.0);
                     world.actors.push(new_actor);
-                    world.selected_actor_id = Some(new_id);
+                    world.select_single_actor(new_id, world.actors.len() - 1);
                 }
             }
 
             if let Some(id) = actor_to_delete {
                 world.push_undo_state();
                 world.actors.retain(|a| a.id != id);
-                if world.selected_actor_id == Some(id) {
-                    world.selected_actor_id = None;
-                }
+                world.clear_selection();
             }
 
             ui.add_space(6.0);
 
             ui.horizontal(|ui| {
-                ui.label(RichText::new(format!("{} actors", world.actors.len())).small().color(Color32::GRAY));
-                if world.selected_actor_id.is_some() {
+                let sel_count = world.selected_actor_ids.len();
+                if sel_count > 1 {
+                    ui.label(RichText::new(format!("{} actors selected", sel_count)).small().color(Color32::from_rgb(245, 158, 11)).strong());
+                } else {
+                    ui.label(RichText::new(format!("{} actors", world.actors.len())).small().color(Color32::GRAY));
+                }
+
+                if !world.selected_actor_ids.is_empty() || world.selected_actor_id.is_some() {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.small_button("❌ Clear Selection").clicked() {
-                            world.selected_actor_id = None;
+                            world.clear_selection();
                         }
                     });
                 }
