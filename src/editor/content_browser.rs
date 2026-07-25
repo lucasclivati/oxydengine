@@ -141,39 +141,87 @@ pub fn show_content_browser_and_log(
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        // PAINEL DE PASTAS À ESQUERDA: MAPS EM PRIMEIRA POSIÇÃO + ALINHAMENTO À ESQUERDA + BORDA VISÍVEL 1PX (normal_text)
+                        // PAINEL DE PASTAS À ESQUERDA: MAPS EM PRIMEIRA POSIÇÃO + ALINHAMENTO À ESQUERDA + BORDA VISÍVEL 1PX (normal_text) + BUSCA DINÂMICA DO DISCO E CRIAÇÃO DE NOVAS PASTAS
                         ui.vertical(|ui| {
                             ui.set_width(180.0);
-                            ui.label(RichText::new("📦 Content Folders").strong().color(Color32::from_rgb(170, 180, 195)));
-                            ui.add_space(6.0);
-                            
-                            // ORDEM SOLICITADA PELO USUÁRIO: Maps, Actors, Materials, Meshes, Textures, Decals, VFX
-                            let folders = ["Maps", "Actors", "Materials", "Meshes", "Textures", "Decals", "VFX"];
+                            ui.horizontal(|ui| {
+                                ui.label(RichText::new("📦 Content Folders").strong().color(Color32::from_rgb(170, 180, 195)));
+                            });
+                            ui.add_space(4.0);
 
-                            for f in folders {
-                                let is_sel = console_state.selected_folder == f;
-                                let bg_color = if is_sel { accent } else { Color32::from_rgb(26, 30, 40) };
-                                let stroke_color = if is_sel { accent } else { text_light };
-                                let folder_text_color = if is_sel { highlight_text } else { text_light };
+                            // Garantir que as pastas padrões e a estrutura no disco existam
+                            let content_root = "projects/TopDownExample/Content";
+                            let _ = fs::create_dir_all(content_root);
 
-                                let btn_frame = Frame::none()
-                                    .fill(bg_color)
-                                    .rounding(Rounding::same(4.0))
-                                    .stroke(Stroke::new(1.0_f32, stroke_color))
-                                    .inner_margin(Margin::symmetric(10.0, 5.0));
+                            let mut folders = vec![
+                                "Maps".to_string(),
+                                "Actors".to_string(),
+                                "Materials".to_string(),
+                                "Meshes".to_string(),
+                                "Textures".to_string(),
+                                "Decals".to_string(),
+                                "VFX".to_string(),
+                            ];
 
-                                let res = btn_frame.show(ui, |ui| {
-                                    ui.set_width(160.0);
-                                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                                        ui.label(RichText::new(format!("📁  {}", f)).color(folder_text_color).strong());
-                                    });
-                                });
-
-                                if res.response.clicked() {
-                                    console_state.selected_folder = f.to_string();
-                                }
-                                ui.add_space(4.0);
+                            for f in &folders {
+                                let _ = fs::create_dir_all(format!("{}/{}", content_root, f));
                             }
+
+                            // Descobrir dinamicamente qualquer pasta customizada criada pelo usuário no disco
+                            if let Ok(entries) = fs::read_dir(content_root) {
+                                for entry in entries.flatten() {
+                                    if entry.path().is_dir() {
+                                        let folder_name = entry.file_name().to_string_lossy().to_string();
+                                        if !folders.contains(&folder_name) {
+                                            folders.push(folder_name);
+                                        }
+                                    }
+                                }
+                            }
+
+                            egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+                                for f in &folders {
+                                    let is_sel = console_state.selected_folder == *f;
+                                    let bg_color = if is_sel { accent } else { Color32::from_rgb(26, 30, 40) };
+                                    let stroke_color = if is_sel { accent } else { text_light };
+                                    let folder_text_color = if is_sel { highlight_text } else { text_light };
+
+                                    let btn_frame = Frame::none()
+                                        .fill(bg_color)
+                                        .rounding(Rounding::same(4.0))
+                                        .stroke(Stroke::new(1.0_f32, stroke_color))
+                                        .inner_margin(Margin::symmetric(10.0, 5.0));
+
+                                    let res = btn_frame.show(ui, |ui| {
+                                        ui.set_width(155.0);
+                                        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                                            ui.label(RichText::new(format!("📁  {}", f)).color(folder_text_color).strong());
+                                        });
+                                    });
+
+                                    // REGISTRO DE CLIQUE 100% GARANTIDO ATRAVÉS DE SENSE::CLICK NO RECT DO BOTÃO
+                                    let click_resp = ui.interact(res.response.rect, ui.id().with(f), egui::Sense::click());
+                                    if click_resp.clicked() {
+                                        console_state.selected_folder = f.clone();
+                                    }
+                                    ui.add_space(3.0);
+                                }
+                            });
+
+                            ui.add_space(6.0);
+                            ui.separator();
+                            ui.add_space(4.0);
+
+                            // BOTÃO PARA CRIAR UMA NOVA PASTA CUSTOMIZADA QUALQUER (ENGINE TOTALMENTE CUSTOMIZÁVEL)
+                            ui.horizontal(|ui| {
+                                if ui.button("➕ New Folder").clicked() {
+                                    let new_folder_name = format!("CustomFolder_{}", folders.len() - 6);
+                                    let new_path = format!("{}/{}", content_root, new_folder_name);
+                                    if let Ok(_) = fs::create_dir_all(&new_path) {
+                                        console_state.selected_folder = new_folder_name;
+                                    }
+                                }
+                            });
                         });
 
                         ui.separator();
