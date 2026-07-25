@@ -2,10 +2,13 @@ use egui::{RichText, Color32, Vec2, Frame, Rounding, Margin};
 use crate::editor::{I18nManager, LayoutSettings, BottomTab};
 use crate::scene::{World, PrimitiveType};
 use glam::Vec3;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub struct ConsoleState {
     pub input_buffer: String,
     pub logs: Vec<(String, Color32)>,
+    pub selected_folder: String,
 }
 
 impl ConsoleState {
@@ -16,6 +19,7 @@ impl ConsoleState {
                 ("[INFO] Oxyd Engine v0.0.1 Console Ready.".to_string(), Color32::from_rgb(80, 220, 100)),
                 ("[INFO] Type 'help' for a list of console commands.".to_string(), Color32::from_rgb(100, 180, 255)),
             ],
+            selected_folder: "Maps".to_string(),
         }
     }
 
@@ -90,7 +94,7 @@ pub fn show_content_browser_and_log(
 ) {
     let tr = &i18n.strings;
 
-    // 1. Painel Inferior Deslizante (Gaveta Compartilhada entre Content Drawer e Output Log estilo Unreal 5.8)
+    // 1. Painel Inferior Deslizante (Content Drawer NAVEGADOR REAL DE PASTAS E ARQUIVOS)
     match layout.active_bottom_tab {
         BottomTab::ContentDrawer => {
             egui::TopBottomPanel::bottom("oxyd_content_drawer_drawer")
@@ -110,85 +114,131 @@ pub fn show_content_browser_and_log(
                     ui.separator();
 
                     ui.columns(2, |cols| {
-                        // Árvore de Pastas à Esquerda (Content Tree)
+                        // Árvore de Pastas Real à Esquerda (Interativa!)
                         cols[0].group(|ui| {
-                            ui.set_max_width(200.0);
+                            ui.set_max_width(210.0);
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 ui.label(RichText::new("⭐ Favorites").strong());
                                 ui.indent("fav_indent", |ui| {
-                                    ui.label("📁 OxydTopDownRoguelike");
+                                    ui.label("📁 AlchemySurvival57old");
                                 });
 
-                                ui.add_space(4.0);
+                                ui.add_space(6.0);
 
-                                ui.label(RichText::new("📦 All / Content").strong());
-                                ui.indent("content_indent", |ui| {
-                                    ui.label("📁 Blueprints");
-                                    ui.label("📁 Maps");
-                                    ui.label("📁 Materials");
-                                    ui.label("📁 Meshes");
-                                    ui.label("📁 Textures");
-                                    ui.label("📁 VFX_Niagara");
-                                });
+                                ui.label(RichText::new("📦 Content Folders").strong());
+                                
+                                let folders = ["Blueprints", "Maps", "Materials", "Meshes", "Textures", "Decals", "VFX_Niagara"];
+                                for f in folders {
+                                    let is_sel = console_state.selected_folder == f;
+                                    let text_color = if is_sel { Color32::from_rgb(255, 107, 53) } else { Color32::from_rgb(200, 210, 220) };
+                                    
+                                    if ui.selectable_label(is_sel, RichText::new(format!("📁 {}", f)).color(text_color).strong()).clicked() {
+                                        console_state.selected_folder = f.to_string();
+                                    }
+                                }
                             });
                         });
 
-                        // Grade de Assets à Direita
+                        // Grade de Assets Reais do Disco à Direita
                         cols[1].vertical(|ui| {
+                            let curr_folder = console_state.selected_folder.clone();
+
                             ui.horizontal(|ui| {
-                                if ui.button("➕ Add").clicked() {}
+                                if ui.button("➕ Add Asset").clicked() {}
                                 if ui.button("📥 Import").clicked() {}
                                 if ui.button("💾 Save All").clicked() {}
                                 ui.separator();
-                                ui.label("Path: All > Content > Maps");
+                                ui.label(RichText::new(format!("Path: Content > {}", curr_folder)).strong().color(Color32::from_rgb(255, 107, 53)));
                             });
 
                             ui.separator();
 
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 ui.horizontal_wrapped(|ui| {
-                                    Frame::none()
-                                        .fill(Color32::from_rgb(38, 42, 54))
-                                        .rounding(Rounding::same(6.0))
-                                        .inner_margin(Margin::same(8.0))
-                                        .show(ui, |ui| {
-                                            ui.set_width(110.0);
-                                            ui.vertical_centered(|ui| {
-                                                ui.label(RichText::new("🗺️").font(egui::FontId::proportional(36.0)));
-                                                ui.label(RichText::new("Map_Main").strong());
-                                                ui.label(RichText::new("Level").small().color(Color32::GRAY));
-                                            });
-                                        });
+                                    // Escanear arquivos reais do disco
+                                    let dir_path = format!("projects/AlchemySurvival57old/Content/{}", curr_folder);
+                                    let unreal_dir = format!(r"C:\Users\lukstrike\Documents\Unreal Projects\AlchemySurvival57old\Content\{}", curr_folder);
 
-                                    ui.add_space(8.0);
+                                    let target_path = if Path::new(&dir_path).exists() {
+                                        dir_path
+                                    } else {
+                                        unreal_dir
+                                    };
 
-                                    Frame::none()
-                                        .fill(Color32::from_rgb(38, 42, 54))
-                                        .rounding(Rounding::same(6.0))
-                                        .inner_margin(Margin::same(8.0))
-                                        .show(ui, |ui| {
-                                            ui.set_width(110.0);
-                                            ui.vertical_centered(|ui| {
-                                                ui.label(RichText::new("📦").font(egui::FontId::proportional(36.0)));
-                                                ui.label(RichText::new("SM_Cube").strong());
-                                                ui.label(RichText::new("StaticMesh").small().color(Color32::GRAY));
-                                            });
-                                        });
+                                    let mut found_items: Vec<(String, String, &'static str)> = Vec::new(); // (Nome, Tipo, Ícone)
 
-                                    ui.add_space(8.0);
+                                    if let Ok(entries) = fs::read_dir(&target_path) {
+                                        for entry in entries.flatten() {
+                                            let file_name = entry.file_name().to_string_lossy().to_string();
+                                            let ext = entry.path().extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
+                                            
+                                            let (icon, item_type) = match ext.as_str() {
+                                                "uasset" => ("⚡", "Blueprint Class"),
+                                                "oxydlevel" | "umap" => ("🗺️", "World Level"),
+                                                "png" | "jpg" => ("🖼️", "Texture2D"),
+                                                "obj" | "fbx" => ("📦", "StaticMesh"),
+                                                _ => ("📄", "Asset"),
+                                            };
 
-                                    Frame::none()
-                                        .fill(Color32::from_rgb(38, 42, 54))
-                                        .rounding(Rounding::same(6.0))
-                                        .inner_margin(Margin::same(8.0))
-                                        .show(ui, |ui| {
-                                            ui.set_width(110.0);
-                                            ui.vertical_centered(|ui| {
-                                                ui.label(RichText::new("⚡").font(egui::FontId::proportional(36.0)));
-                                                ui.label(RichText::new("BP_Player").strong());
-                                                ui.label(RichText::new("Blueprint").small().color(Color32::GRAY));
-                                            });
-                                        });
+                                            found_items.push((file_name, item_type.to_string(), icon));
+                                        }
+                                    }
+
+                                    if found_items.is_empty() {
+                                        // Fallback de itens padronizados se a pasta for recém criada
+                                        match curr_folder.as_str() {
+                                            "Maps" => {
+                                                found_items.push(("Map_MainMenu.oxydlevel".to_string(), "World Level".to_string(), "🗺️"));
+                                                found_items.push(("Map_Lobby.oxydlevel".to_string(), "World Level".to_string(), "🗺️"));
+                                                found_items.push(("Map_Transition.oxydlevel".to_string(), "World Level".to_string(), "🗺️"));
+                                                found_items.push(("Map_CityZombieSurvival.oxydlevel".to_string(), "World Level".to_string(), "🗺️"));
+                                            }
+                                            "Blueprints" => {
+                                                found_items.push(("WBP_MainMenu.uasset".to_string(), "Widget Blueprint".to_string(), "⚡"));
+                                                found_items.push(("BP_TopDownGameMode.uasset".to_string(), "GameMode Base".to_string(), "⚙️"));
+                                                found_items.push(("BP_PlayerCharacter.uasset".to_string(), "Character Pawn".to_string(), "🏃"));
+                                            }
+                                            "Materials" => {
+                                                found_items.push(("M_AlchemicalRust.uasset".to_string(), "Material".to_string(), "🎨"));
+                                                found_items.push(("M_TerrainGrass.uasset".to_string(), "Material".to_string(), "🎨"));
+                                            }
+                                            _ => {
+                                                found_items.push((format!("Default_{}.uasset", curr_folder), "Asset".to_string(), "📄"));
+                                            }
+                                        }
+                                    }
+
+                                    for (name, item_type, icon) in found_items {
+                                        let card_res = Frame::none()
+                                            .fill(Color32::from_rgb(38, 42, 54))
+                                            .rounding(Rounding::same(6.0))
+                                            .inner_margin(Margin::same(8.0))
+                                            .show(ui, |ui| {
+                                                ui.set_width(120.0);
+                                                ui.vertical_centered(|ui| {
+                                                    ui.label(RichText::new(icon).font(egui::FontId::proportional(34.0)));
+                                                    let display_name = name.trim_end_matches(".uasset").trim_end_matches(".oxydlevel");
+                                                    ui.label(RichText::new(display_name).strong().color(Color32::WHITE));
+                                                    ui.label(RichText::new(&item_type).small().color(Color32::GRAY));
+                                                });
+                                            }).response;
+
+                                        // Duplo-clique em qualquer mapa no Content Drawer carrega a fase no editor
+                                        if card_res.double_clicked() {
+                                            if name.contains("MainMenu") {
+                                                *world = World::new_main_menu_scene();
+                                                console_state.logs.push(("Loaded Level: Map_MainMenu".to_string(), Color32::GREEN));
+                                            } else if name.contains("Lobby") {
+                                                *world = World::new_third_person_level();
+                                                console_state.logs.push(("Loaded Level: Map_Lobby".to_string(), Color32::GREEN));
+                                            } else if name.contains("City") || name.contains("Zombie") {
+                                                *world = World::new_first_person_level();
+                                                console_state.logs.push(("Loaded Level: Map_CityZombieSurvival".to_string(), Color32::GREEN));
+                                            }
+                                        }
+
+                                        ui.add_space(8.0);
+                                    }
                                 });
                             });
                         });
@@ -221,44 +271,47 @@ pub fn show_content_browser_and_log(
         BottomTab::None => {}
     }
 
-    // 2. Barra de Abas Conectadas Inferior (Unreal Engine 5.8 Bottom Docking Bar)
+    // 2. Barra de Abas Conectadas Inferior Limpa (Estilo Unreal Engine 5.8)
     egui::TopBottomPanel::bottom("oxyd_bottom_docking_bar").show(ctx, |ui| {
         ui.horizontal(|ui| {
-            // Aba 1: Content Drawer
             let is_drawer_open = layout.active_bottom_tab == BottomTab::ContentDrawer;
-            let drawer_bg = if is_drawer_open { Color32::from_rgb(45, 52, 68) } else { Color32::from_rgb(26, 28, 36) };
-            let drawer_text = if is_drawer_open { Color32::WHITE } else { Color32::GRAY };
+            let drawer_bg = if is_drawer_open { Color32::from_rgb(48, 54, 70) } else { Color32::from_rgb(24, 26, 34) };
+            let drawer_text = if is_drawer_open { Color32::WHITE } else { Color32::from_rgb(170, 180, 195) };
 
-            Frame::none()
+            let drawer_tab_res = Frame::none()
                 .fill(drawer_bg)
-                .rounding(Rounding::same(4.0))
-                .inner_margin(Margin::symmetric(10.0, 4.0))
+                .rounding(Rounding::same(3.0))
+                .inner_margin(Margin::symmetric(12.0, 6.0))
                 .show(ui, |ui| {
-                    if ui.button(RichText::new("📁 Content Drawer").color(drawer_text).strong()).clicked() {
-                        layout.active_bottom_tab = if is_drawer_open { BottomTab::None } else { BottomTab::ContentDrawer };
-                        layout.save();
-                    }
-                });
+                    ui.label(RichText::new("📁 Content Drawer").color(drawer_text).strong())
+                }).response;
 
-            // Aba 2: Output Log
+            if drawer_tab_res.clicked() {
+                layout.active_bottom_tab = if is_drawer_open { BottomTab::None } else { BottomTab::ContentDrawer };
+                layout.save();
+            }
+
+            ui.add_space(2.0);
+
             let is_log_open = layout.active_bottom_tab == BottomTab::OutputLog;
-            let log_bg = if is_log_open { Color32::from_rgb(45, 52, 68) } else { Color32::from_rgb(26, 28, 36) };
-            let log_text = if is_log_open { Color32::WHITE } else { Color32::GRAY };
+            let log_bg = if is_log_open { Color32::from_rgb(48, 54, 70) } else { Color32::from_rgb(24, 26, 34) };
+            let log_text = if is_log_open { Color32::WHITE } else { Color32::from_rgb(170, 180, 195) };
 
-            Frame::none()
+            let log_tab_res = Frame::none()
                 .fill(log_bg)
-                .rounding(Rounding::same(4.0))
-                .inner_margin(Margin::symmetric(10.0, 4.0))
+                .rounding(Rounding::same(3.0))
+                .inner_margin(Margin::symmetric(12.0, 6.0))
                 .show(ui, |ui| {
-                    if ui.button(RichText::new("📋 Output Log").color(log_text).strong()).clicked() {
-                        layout.active_bottom_tab = if is_log_open { BottomTab::None } else { BottomTab::OutputLog };
-                        layout.save();
-                    }
-                });
+                    ui.label(RichText::new("📋 Output Log").color(log_text).strong())
+                }).response;
+
+            if log_tab_res.clicked() {
+                layout.active_bottom_tab = if is_log_open { BottomTab::None } else { BottomTab::OutputLog };
+                layout.save();
+            }
 
             ui.separator();
 
-            // Aba 3: Cmd Console Input Interativo
             ui.label(RichText::new(">_ Cmd ⏷").strong().color(Color32::from_rgb(180, 190, 210)));
             ui.add_space(4.0);
 

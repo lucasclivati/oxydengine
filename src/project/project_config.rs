@@ -26,7 +26,7 @@ impl ProjectConfig {
             name: name.to_string(),
             path: abs_path,
             created_at: "2026-07-24".to_string(),
-            engine_version: "0.1.0".to_string(),
+            engine_version: "0.0.1".to_string(),
             thumbnail_path,
         }
     }
@@ -41,7 +41,6 @@ impl ProjectConfig {
             fs::create_dir_all(dir)?;
         }
 
-        // Criar uma cópia da logo como miniatura se não houver thumbnail personalizada
         let thumb_target = dir.join("thumbnail.jpg");
         if !thumb_target.exists() && Path::new("logo.jpg").exists() {
             let _ = fs::copy("logo.jpg", &thumb_target);
@@ -51,9 +50,18 @@ impl ProjectConfig {
         let content = serde_json::to_string_pretty(self)?;
         fs::write(file_path, content)?;
 
-        // Garantir que diretórios assets e cenas existam no projeto
-        let scenes_dir = dir.join("assets").join("scenes");
-        fs::create_dir_all(scenes_dir)?;
+        // Criar estrutura de pastas do projeto Unreal (Content, Blueprints, Maps, Materials, Meshes, Textures, Decals)
+        let content_dir = dir.join("Content");
+        let subfolders = ["Blueprints", "Maps", "Materials", "Meshes", "Textures", "Decals", "VFX_Niagara"];
+        for folder in subfolders {
+            let _ = fs::create_dir_all(content_dir.join(folder));
+        }
+
+        // Criar arquivos de mapas de exemplo dentro do projeto
+        let _ = fs::write(content_dir.join("Maps").join("Map_MainMenu.oxydlevel"), r#"{"level_name": "Map_MainMenu"}"#);
+        let _ = fs::write(content_dir.join("Maps").join("Map_Lobby.oxydlevel"), r#"{"level_name": "Map_Lobby"}"#);
+        let _ = fs::write(content_dir.join("Maps").join("Map_Transition.oxydlevel"), r#"{"level_name": "Map_Transition"}"#);
+        let _ = fs::write(content_dir.join("Maps").join("Map_CityZombieSurvival.oxydlevel"), r#"{"level_name": "Map_CityZombieSurvival"}"#);
 
         Ok(())
     }
@@ -115,45 +123,30 @@ impl ProjectsHistory {
 
     pub fn default_history() -> Self {
         let default_dir = normalize_path("projects");
-        let default_proj = ProjectConfig::new("OxydTopDownRoguelike", &format!("{}/OxydTopDownRoguelike", default_dir));
-        let _ = default_proj.save();
+        
+        // APENAS O PROJETO AlchemySurvival57old
+        let alchemy_proj = ProjectConfig::new("AlchemySurvival57old", &format!("{}/AlchemySurvival57old", default_dir));
+        let _ = alchemy_proj.save();
 
         let history = Self {
             default_projects_dir: default_dir,
-            recent_projects: vec![default_proj],
+            recent_projects: vec![alchemy_proj],
         };
         history.save();
         history
     }
 
     pub fn deduplicate_and_scan(&mut self) {
-        // Remover duplicados existentes
-        let mut unique: Vec<ProjectConfig> = Vec::new();
-        for proj in &self.recent_projects {
-            let norm_path = normalize_path(&proj.path).to_lowercase();
-            if !unique.iter().any(|u| normalize_path(&u.path).to_lowercase() == norm_path || u.name == proj.name) {
-                let mut clean_proj = proj.clone();
-                clean_proj.path = normalize_path(&proj.path);
-                unique.push(clean_proj);
-            }
-        }
-        self.recent_projects = unique;
+        let default_dir = self.default_projects_dir.clone();
+        
+        let alchemy_proj = ProjectConfig::new("AlchemySurvival57old", &format!("{}/AlchemySurvival57old", default_dir));
+        let _ = alchemy_proj.save();
 
-        // Escanear diretório padrão
-        let dir = Path::new(&self.default_projects_dir);
-        if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                if entry.path().is_dir() {
-                    let dir_str = entry.path().to_string_lossy().to_string();
-                    if let Ok(proj) = ProjectConfig::load_from_dir(&dir_str) {
-                        let norm_p = normalize_path(&proj.path).to_lowercase();
-                        if !self.recent_projects.iter().any(|p| normalize_path(&p.path).to_lowercase() == norm_p || p.name == proj.name) {
-                            self.recent_projects.push(proj);
-                        }
-                    }
-                }
-            }
-        }
+        let mut unique: Vec<ProjectConfig> = Vec::new();
+        // Manter estritamente AlchemySurvival57old
+        unique.push(alchemy_proj);
+
+        self.recent_projects = unique;
         self.save();
     }
 

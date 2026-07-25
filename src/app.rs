@@ -10,7 +10,7 @@ use crate::scene::World;
 use crate::project::ProjectConfig;
 use crate::editor::{
     show_top_bars, show_outliner_panel, show_details_panel, show_content_browser_and_log,
-    show_launcher_gui, LauncherState, LevelTemplate, I18nManager, LayoutSettings, BottomTab, ConsoleState,
+    show_launcher_gui, show_main_menu_widget, MainMenuAction, LauncherState, I18nManager, LayoutSettings, BottomTab, ConsoleState,
 };
 
 #[derive(PartialEq)]
@@ -52,7 +52,7 @@ impl App {
             layout_settings: LayoutSettings::load(),
             console_state: ConsoleState::new(),
             active_project: None,
-            world: World::new_default_scene(),
+            world: World::new_main_menu_scene(),
             i18n: I18nManager::new(),
             last_frame: Instant::now(),
         }
@@ -138,10 +138,9 @@ impl ApplicationHandler for App {
                 let mut project_to_open: Option<ProjectConfig> = None;
                 let mut switch_to_launcher = false;
 
-                let proj_name = active_project.as_ref().map(|p| p.name.as_str()).unwrap_or("OxydTopDownRoguelike");
+                let proj_name = active_project.as_ref().map(|p| p.name.as_str()).unwrap_or("AlchemySurvival57old");
 
                 let full_output = renderer.egui_ctx.run(raw_input, |ctx| {
-                    // ATALHO CTRL + ESPAÇO PARA ABRIR/FECHAR CONTENT DRAWER
                     if ctx.input(|i| i.key_pressed(egui::Key::Space) && i.modifiers.ctrl) {
                         layout_settings.active_bottom_tab = if layout_settings.active_bottom_tab == BottomTab::ContentDrawer { BottomTab::None } else { BottomTab::ContentDrawer };
                         layout_settings.save();
@@ -156,30 +155,42 @@ impl ApplicationHandler for App {
                         show_outliner_panel(ctx, world, i18n, layout_settings);
                         show_details_panel(ctx, world, i18n, layout_settings);
                         show_content_browser_and_log(ctx, i18n, layout_settings, world, console_state);
+
+                        // Exibe a UI Widget WBP_MainMenu do AlchemySurvival57old sobre a paisagem 3D
+                        if !world.is_playing {
+                            match show_main_menu_widget(ctx, world) {
+                                MainMenuAction::HostSoloGame => {
+                                    log::info!("Iniciando partida solo no AlchemySurvival57old...");
+                                    world.is_playing = true;
+                                }
+                                MainMenuAction::JoinLobby => {
+                                    log::info!("Carregando Map_Lobby...");
+                                    *world = World::new_third_person_level();
+                                }
+                                MainMenuAction::QuitGame => {
+                                    std::process::exit(0);
+                                }
+                                _ => {}
+                            }
+                        }
                     }
                 });
 
                 egui_state.handle_platform_output(renderer.window.as_ref(), full_output.platform_output);
                 let clipped_primitives = renderer.egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
 
-                // Alternar modo para Launcher se solicitado
                 if switch_to_launcher {
                     self.mode = AppMode::Launcher;
                     renderer.window.set_title("Oxyd Engine Hub");
                 }
 
-                // Abrir Projeto Selecionado com o Template de Level Escolhido
+                // Abrir Projeto Selecionado: Carrega estritamente o Map_MainMenu do AlchemySurvival57old com a paisagem 3D
                 if let Some(proj) = project_to_open {
                     log::info!("Abrindo projeto: {} ({})", proj.name, proj.path);
                     renderer.window.set_title(&format!("Oxyd Engine - {}", proj.name));
                     self.active_project = Some(proj);
                     
-                    self.world = match launcher_state.selected_template {
-                        LevelTemplate::Blank => World::new_empty_scene(),
-                        LevelTemplate::ThirdPerson => World::new_third_person_level(),
-                        LevelTemplate::FirstPerson => World::new_first_person_level(),
-                    };
-
+                    self.world = World::new_main_menu_scene();
                     self.mode = AppMode::Editor;
                 }
 
