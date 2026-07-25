@@ -94,7 +94,7 @@ pub fn show_content_browser_and_log(
 ) {
     let tr = &i18n.strings;
 
-    // 1. Content Drawer Panel (Fundo Cinza Escuro #14161C)
+    // 1. Content Drawer & Output Log Panel (Fundo Cinza Escuro #14161C)
     match layout.active_bottom_tab {
         BottomTab::ContentDrawer => {
             egui::TopBottomPanel::bottom("oxyd_content_drawer_drawer")
@@ -119,38 +119,36 @@ pub fn show_content_browser_and_log(
                     });
                     ui.separator();
 
-                    ui.columns(2, |cols| {
-                        cols[0].group(|ui| {
-                            ui.set_max_width(210.0);
-                            egui::ScrollArea::vertical().show(ui, |ui| {
-                                ui.label(RichText::new("📦 Content Folders").strong().color(Color32::from_rgb(170, 180, 195)));
-                                ui.add_space(6.0);
-                                
-                                let folders = ["Actors", "Maps", "Materials", "Meshes", "Textures", "Decals", "VFX"];
-                                let avail_width = ui.available_width();
+                    ui.horizontal(|ui| {
+                        // Painel de Pastas à Esquerda com SelectableLabel direct Sensed Clicks
+                        ui.vertical(|ui| {
+                            ui.set_width(180.0);
+                            ui.label(RichText::new("📦 Content Folders").strong().color(Color32::from_rgb(170, 180, 195)));
+                            ui.add_space(6.0);
+                            
+                            let folders = ["Actors", "Maps", "Materials", "Meshes", "Textures", "Decals", "VFX"];
 
-                                for f in folders {
-                                    let is_sel = console_state.selected_folder == f;
-                                    let bg_fill = if is_sel { Color32::from_rgb(45, 50, 65) } else { Color32::from_rgb(26, 28, 36) };
-                                    let stroke = if is_sel { Stroke::new(1.5, Color32::from_rgb(245, 158, 11)) } else { Stroke::NONE };
-                                    let text_color = if is_sel { Color32::WHITE } else { Color32::from_rgb(210, 215, 225) };
+                            for f in folders {
+                                let is_sel = console_state.selected_folder == f;
+                                let text_color = if is_sel { Color32::WHITE } else { Color32::from_rgb(210, 215, 225) };
+                                let label = RichText::new(format!("📁  {}", f)).color(text_color).strong();
 
-                                    let label = RichText::new(format!("📁  {}", f)).color(text_color).strong();
-                                    
-                                    let btn = egui::Button::new(label)
-                                        .fill(bg_fill)
-                                        .stroke(stroke)
-                                        .rounding(Rounding::same(4.0));
+                                let sel_btn = ui.add_sized(
+                                    Vec2::new(170.0, 28.0),
+                                    egui::SelectableLabel::new(is_sel, label)
+                                );
 
-                                    if ui.add_sized(Vec2::new(avail_width, 30.0), btn).clicked() {
-                                        console_state.selected_folder = f.to_string();
-                                    }
-                                    ui.add_space(2.0);
+                                if sel_btn.clicked() {
+                                    console_state.selected_folder = f.to_string();
                                 }
-                            });
+                                ui.add_space(2.0);
+                            }
                         });
 
-                        cols[1].vertical(|ui| {
+                        ui.separator();
+
+                        // Grade de Assets Reais à Direita
+                        ui.vertical(|ui| {
                             let curr_folder = console_state.selected_folder.clone();
 
                             ui.horizontal(|ui| {
@@ -298,7 +296,7 @@ pub fn show_content_browser_and_log(
         BottomTab::None => {}
     }
 
-    // 2. BARRA INFERIOR COMPLETA EM TOM ESCURO DE CINZA (#14161C) E BORDAS EM AMARELO OURO (#F59E0B)
+    // 2. BARRA INFERIOR COM BOTOES DIRETOS DO EGUI PARA CLIQUE 100% GARANTIDO
     egui::TopBottomPanel::bottom("oxyd_bottom_docking_bar")
         .frame(
             Frame::none()
@@ -313,16 +311,13 @@ pub fn show_content_browser_and_log(
                 let drawer_stroke = if is_drawer_open { Stroke::new(1.0, Color32::from_rgb(245, 158, 11)) } else { Stroke::new(1.0, Color32::from_rgb(50, 55, 68)) };
                 let drawer_text = if is_drawer_open { Color32::WHITE } else { Color32::from_rgb(190, 195, 210) };
 
-                let drawer_tab_res = Frame::none()
+                // USAR egui::Button DIRETO GARANTE CLIQUE DO MOUSE 100% CONFIÁVEL
+                let btn_drawer = egui::Button::new(RichText::new("📁 Content Drawer").color(drawer_text).strong())
                     .fill(drawer_bg)
                     .stroke(drawer_stroke)
-                    .rounding(Rounding::same(4.0))
-                    .inner_margin(Margin::symmetric(12.0, 6.0))
-                    .show(ui, |ui| {
-                        ui.label(RichText::new("📁 Content Drawer").color(drawer_text).strong())
-                    }).response;
+                    .rounding(Rounding::same(4.0));
 
-                if drawer_tab_res.clicked() {
+                if ui.add(btn_drawer).clicked() {
                     layout.active_bottom_tab = if is_drawer_open { BottomTab::None } else { BottomTab::ContentDrawer };
                     layout.save();
                 }
@@ -334,16 +329,12 @@ pub fn show_content_browser_and_log(
                 let log_stroke = if is_log_open { Stroke::new(1.0, Color32::from_rgb(245, 158, 11)) } else { Stroke::new(1.0, Color32::from_rgb(50, 55, 68)) };
                 let log_text = if is_log_open { Color32::WHITE } else { Color32::from_rgb(190, 195, 210) };
 
-                let log_tab_res = Frame::none()
+                let btn_log = egui::Button::new(RichText::new("📋 Output Log").color(log_text).strong())
                     .fill(log_bg)
                     .stroke(log_stroke)
-                    .rounding(Rounding::same(4.0))
-                    .inner_margin(Margin::symmetric(12.0, 6.0))
-                    .show(ui, |ui| {
-                        ui.label(RichText::new("📋 Output Log").color(log_text).strong())
-                    }).response;
+                    .rounding(Rounding::same(4.0));
 
-                if log_tab_res.clicked() {
+                if ui.add(btn_log).clicked() {
                     layout.active_bottom_tab = if is_log_open { BottomTab::None } else { BottomTab::OutputLog };
                     layout.save();
                 }

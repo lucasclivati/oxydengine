@@ -136,7 +136,7 @@ pub fn show_outliner_panel(
                                 let text_color = if is_selected { Color32::WHITE } else { Color32::from_rgb(220, 225, 235) };
                                 let name_lbl = ui.add(
                                     egui::Label::new(RichText::new(&actor.name).color(text_color).strong())
-                                        .truncate(true)
+                                        .truncate()
                                 );
 
                                 if name_lbl.clicked() {

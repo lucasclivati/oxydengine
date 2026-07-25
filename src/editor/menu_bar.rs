@@ -73,6 +73,7 @@ pub fn show_top_bars(
                     ui.label("📄 Paste                  Ctrl+V");
                 });
 
+                // Menu Window com Seleção Múltipla de Janelas (Content Drawer, Output Log, Map Assets, Details)
                 ui.menu_button(&tr.window_menu, |ui| {
                     let mut drawer_active = layout.active_bottom_tab == BottomTab::ContentDrawer;
                     if ui.checkbox(&mut drawer_active, format!("📁 {}", tr.content_drawer)).changed() {
@@ -83,6 +84,16 @@ pub fn show_top_bars(
                     let mut log_active = layout.active_bottom_tab == BottomTab::OutputLog;
                     if ui.checkbox(&mut log_active, format!("📋 {}", tr.output_log)).changed() {
                         layout.active_bottom_tab = if log_active { BottomTab::OutputLog } else { BottomTab::None };
+                        layout.save();
+                    }
+
+                    ui.separator();
+
+                    if ui.checkbox(&mut layout.show_map_assets, "📑 Map Assets").changed() {
+                        layout.save();
+                    }
+
+                    if ui.checkbox(&mut layout.show_details, "⚙ Details").changed() {
                         layout.save();
                     }
                 });
@@ -244,7 +255,7 @@ pub fn show_top_bars(
     style_toolbar.spacing.item_spacing.x = 8.0;
     ctx.set_style(style_toolbar);
 
-    // 3. Sub-toolbar do Viewport (Ícones de Selection Mode limpos sem quadrados)
+    // 3. Sub-toolbar do Viewport
     egui::TopBottomPanel::top("oxyd_viewport_toolbar")
         .frame(
             Frame::none()
@@ -262,7 +273,6 @@ pub fn show_top_bars(
 
                 ui.separator();
 
-                // Selection Mode Limpo sem quadrados de unicode bugados
                 ui.menu_button(RichText::new("🎯 Selection Mode ⏷").strong(), |ui| {
                     ui.set_width(220.0);
 
@@ -328,7 +338,6 @@ pub fn show_top_bars(
 
                 ui.separator();
 
-                // Botão "Test Map" e "Stop Map" Claros
                 if world.is_playing {
                     if ui.button(RichText::new("⏹ Stop Map").color(Color32::from_rgb(255, 80, 80)).strong()).on_hover_text("Stop Game Test Mode").clicked() {
                         world.is_playing = false;
@@ -341,7 +350,6 @@ pub fn show_top_bars(
 
                 ui.separator();
 
-                // Grid Snapping Editável (📐 Location Snap | 🔄 Rotation Snap | 📏 Scale Snap)
                 ui.horizontal(|ui| {
                     ui.label("📐");
                     ui.add(egui::DragValue::new(&mut layout.location_snap).speed(1.0).range(1.0..=500.0));

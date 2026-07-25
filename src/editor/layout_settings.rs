@@ -16,6 +16,11 @@ pub struct LayoutSettings {
     pub content_drawer_height: f32,
     pub active_tab_index: usize,
     pub open_tabs: Vec<String>,
+    pub location_snap: f32,
+    pub rotation_snap: f32,
+    pub scale_snap: f32,
+    pub show_map_assets: bool,
+    pub show_details: bool,
 }
 
 impl Default for LayoutSettings {
@@ -27,6 +32,11 @@ impl Default for LayoutSettings {
             content_drawer_height: 260.0,
             active_tab_index: 0,
             open_tabs: vec!["Map_MainMenu".to_string()],
+            location_snap: 10.0,
+            rotation_snap: 10.0,
+            scale_snap: 0.25,
+            show_map_assets: true,
+            show_details: true,
         }
     }
 }
@@ -38,6 +48,9 @@ impl LayoutSettings {
                 if settings.open_tabs.is_empty() {
                     settings.open_tabs = vec!["Map_MainMenu".to_string()];
                 }
+                if settings.location_snap <= 0.0 { settings.location_snap = 10.0; }
+                if settings.rotation_snap <= 0.0 { settings.rotation_snap = 10.0; }
+                if settings.scale_snap <= 0.0 { settings.scale_snap = 0.25; }
                 return settings;
             }
         }

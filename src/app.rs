@@ -64,7 +64,6 @@ impl ApplicationHandler for App {
         if self.renderer.is_none() {
             log::info!("Inicializando Oxyd Engine v0.0.1...");
             
-            // JANELA MAXIMIZADA POR PADRÃO NO MONITOR ATUAL
             let mut window_attributes = Window::default_attributes()
                 .with_title("Oxyd Engine Hub")
                 .with_inner_size(winit::dpi::PhysicalSize::new(1280, 800))
@@ -126,7 +125,6 @@ impl ApplicationHandler for App {
                 let dt = now.duration_since(self.last_frame).as_secs_f32();
                 self.last_frame = now;
 
-                // NAVEGAÇÃO DE VÔO NO VIEWPORT (Botão Direito + WASD / QE)
                 if self.mode == AppMode::Editor {
                     renderer.camera_controller.process_input(&renderer.egui_ctx, dt);
                     
@@ -155,6 +153,7 @@ impl ApplicationHandler for App {
 
                 let yaw = renderer.camera_controller.yaw;
                 let pitch = renderer.camera_controller.pitch;
+                let cam_pos = renderer.camera_controller.camera_pos;
 
                 let full_output = renderer.egui_ctx.run(raw_input, |ctx| {
                     if ctx.input(|i| i.key_pressed(egui::Key::Space) && i.modifiers.ctrl) {
@@ -169,11 +168,16 @@ impl ApplicationHandler for App {
                             switch_to_launcher = true;
                         }
                         
-                        if let Some(target_pos) = show_outliner_panel(ctx, world, i18n, layout_settings) {
-                            renderer.camera_controller.focus_target(target_pos);
+                        if layout_settings.show_map_assets {
+                            if let Some(target_pos) = show_outliner_panel(ctx, world, i18n, layout_settings) {
+                                renderer.camera_controller.focus_target(target_pos);
+                            }
                         }
 
-                        show_details_panel(ctx, world, i18n, layout_settings);
+                        if layout_settings.show_details {
+                            show_details_panel(ctx, world, i18n, layout_settings);
+                        }
+                        
                         show_content_browser_and_log(ctx, i18n, layout_settings, world, console_state);
 
                         // ÁREA CENTRAL DE VIEWPORT DO EDITOR (CentralPanel)
@@ -181,6 +185,28 @@ impl ApplicationHandler for App {
                             .frame(egui::Frame::none().fill(egui::Color32::TRANSPARENT))
                             .show(ctx, |ui| {
                                 let rect = ui.max_rect();
+
+                                // CLIQUE DIRETO NOS OBJETOS 3D DO MAPA NO VIEWPORT
+                                if ui.ui_contains_pointer() && ctx.input(|i| i.pointer.primary_clicked()) {
+                                    if let Some(pointer_pos) = ctx.input(|i| i.pointer.interact_pos()) {
+                                        if rect.contains(pointer_pos) {
+                                            let mut closest_actor_id: Option<u64> = None;
+                                            let mut min_dist = f32::MAX;
+
+                                            for actor in &world.actors {
+                                                let dist = (actor.transform.position - cam_pos).length();
+                                                if dist < min_dist {
+                                                    min_dist = dist;
+                                                    closest_actor_id = Some(actor.id);
+                                                }
+                                            }
+
+                                            if let Some(id) = closest_actor_id {
+                                                world.selected_actor_id = Some(id);
+                                            }
+                                        }
+                                    }
+                                }
 
                                 // DURAÇÃO E ROTAÇÃO DINÂMICA 3D DOS EIXOS XYZ ACOMPANHANDO A CÂMERA
                                 let gizmo_origin = egui::pos2(rect.min.x + 50.0, rect.max.y - 50.0);
@@ -209,6 +235,7 @@ impl ApplicationHandler for App {
                                 painter.line_segment([gizmo_origin, end_z], egui::Stroke::new(2.5, egui::Color32::from_rgb(59, 130, 246)));
                                 painter.text(end_z, egui::Align2::CENTER_CENTER, "Z", egui::FontId::proportional(12.0), egui::Color32::from_rgb(59, 130, 246));
 
+                                // WIDGET OVERLAY DO MENU INICIAL SE NÃO ESTIVER EM JOGO
                                 if !world.is_playing {
                                     match show_main_menu_widget(ui, world) {
                                         MainMenuAction::HostSoloGame => {
