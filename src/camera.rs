@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3, Quat};
+use glam::{Mat4, Vec3};
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -64,10 +64,10 @@ impl CameraController {
 
         let mut controller = Self {
             aspect_ratio,
-            camera_pos: Vec3::new(0.0, 5.0, 12.0),
-            pitch: -15.0f32.to_radians(),
+            camera_pos: Vec3::new(0.0, 6.0, 15.0),
+            pitch: -18.0f32.to_radians(),
             yaw: -90.0f32.to_radians(),
-            move_speed: 10.0,
+            move_speed: 12.0,
             look_sensitivity: 0.003,
             fov_degrees: 45.0,
             uniforms,
@@ -108,7 +108,6 @@ impl CameraController {
     pub fn process_input(&mut self, ctx: &egui::Context, dt: f32) {
         let input = ctx.input(|i| i.clone());
 
-        // Processar rotação de visão ao arrastar com Botão Direito do Mouse
         if input.pointer.button_down(egui::PointerButton::Secondary) {
             let delta = input.pointer.delta();
             if delta.length_sq() > 0.0 {
@@ -117,7 +116,6 @@ impl CameraController {
                 self.pitch = self.pitch.clamp(-89.0f32.to_radians(), 89.0f32.to_radians());
             }
 
-            // Vôo 3D WASD / QE
             let speed = self.move_speed * dt;
             let fwd = self.forward();
             let rgt = self.right();
@@ -130,32 +128,31 @@ impl CameraController {
             if input.key_down(egui::Key::Q) { self.camera_pos -= Vec3::Y * speed; }
         }
 
-        // Pan com Botão do Meio do Mouse
         if input.pointer.button_down(egui::PointerButton::Middle) {
             let delta = input.pointer.delta();
-            let pan_speed = 0.02;
+            let pan_speed = 0.025;
             self.camera_pos -= self.right() * delta.x * pan_speed;
             self.camera_pos += self.up() * delta.y * pan_speed;
         }
 
-        // Zoom com Scroll do Mouse
         if input.smooth_scroll_delta.y != 0.0 {
-            let zoom_speed = 0.5;
+            let zoom_speed = 0.6;
             self.camera_pos += self.forward() * input.smooth_scroll_delta.y * zoom_speed;
         }
 
         self.update_matrix();
     }
 
-    pub fn update(&mut self, _dt: f32) {
-        self.update_matrix();
-    }
-
+    // FOCO AUTOMÁTICO NA CÂMERA COM DISTÂNCIA EXPANDIDA PARA VER O OBJETO TOTALMENTE VISÍVEL
     pub fn focus_target(&mut self, target: Vec3) {
-        self.camera_pos = target + Vec3::new(0.0, 3.0, 6.0);
+        self.camera_pos = target + Vec3::new(0.0, 6.0, 14.0);
         let dir = (target - self.camera_pos).normalize();
         self.pitch = dir.y.asin();
         self.yaw = dir.z.atan2(dir.x);
+        self.update_matrix();
+    }
+
+    pub fn update(&mut self, _dt: f32) {
         self.update_matrix();
     }
 

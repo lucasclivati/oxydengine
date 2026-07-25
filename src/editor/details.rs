@@ -10,7 +10,7 @@ pub fn show_details_panel(
 ) {
     let tr = &i18n.strings;
 
-    // SidePanel com Borda 1px Nítida (#374151) idêntica à Unreal Engine 5 (Imagem 3)
+    // SidePanel com Borda 1px Nítida (#374151)
     egui::SidePanel::right("oxyd_details_panel")
         .resizable(true)
         .default_width(layout.outliner_width)
@@ -21,7 +21,7 @@ pub fn show_details_panel(
                 .inner_margin(Margin::same(8.0))
         )
         .show(ctx, |ui| {
-            // Cabeçalho de Aba Estilo UE5 (⚙ Details [×])
+            // Cabeçalho de Aba Estilo UE5 (⚙ Details)
             Frame::none()
                 .fill(Color32::from_rgb(34, 37, 46))
                 .rounding(Rounding::same(4.0))
@@ -51,14 +51,15 @@ pub fn show_details_panel(
 
                 ui.separator();
 
-                // Seção 2: Transformação (Location, Rotation, Scale)
+                // Seção 2: Transformação (Location, Rotation, Scale com Regra de Cadeado UE5)
                 ui.collapsing(RichText::new(format!("📐 {}", tr.transform)).strong(), |ui| {
-                    Grid::new("transform_grid").num_columns(4).spacing([8.0, 6.0]).show(ui, |ui| {
+                    Grid::new("transform_grid").num_columns(5).spacing([6.0, 6.0]).show(ui, |ui| {
                         // Location
                         ui.label(RichText::new("Location").color(Color32::from_rgb(255, 107, 53)).strong());
                         ui.add(egui::DragValue::new(&mut actor.transform.position.x).speed(0.1).prefix("X: "));
                         ui.add(egui::DragValue::new(&mut actor.transform.position.y).speed(0.1).prefix("Y: "));
                         ui.add(egui::DragValue::new(&mut actor.transform.position.z).speed(0.1).prefix("Z: "));
+                        ui.label("");
                         ui.end_row();
 
                         // Rotation
@@ -66,20 +67,49 @@ pub fn show_details_panel(
                         ui.add(egui::DragValue::new(&mut actor.transform.rotation.x).speed(0.5).prefix("X: ").suffix("°"));
                         ui.add(egui::DragValue::new(&mut actor.transform.rotation.y).speed(0.5).prefix("Y: ").suffix("°"));
                         ui.add(egui::DragValue::new(&mut actor.transform.rotation.z).speed(0.5).prefix("Z: ").suffix("°"));
+                        ui.label("");
                         ui.end_row();
 
-                        // Scale
+                        // Scale com Regra de Cadeado (Lock Ratio) da Unreal Engine 5
                         ui.label(RichText::new("Scale").color(Color32::from_rgb(100, 180, 255)).strong());
-                        ui.add(egui::DragValue::new(&mut actor.transform.scale.x).speed(0.05).prefix("X: "));
-                        ui.add(egui::DragValue::new(&mut actor.transform.scale.y).speed(0.05).prefix("Y: "));
-                        ui.add(egui::DragValue::new(&mut actor.transform.scale.z).speed(0.05).prefix("Z: "));
+
+                        let old_x = actor.transform.scale.x;
+                        let old_y = actor.transform.scale.y;
+                        let old_z = actor.transform.scale.z;
+
+                        let drag_x = ui.add(egui::DragValue::new(&mut actor.transform.scale.x).speed(0.05).prefix("X: "));
+                        let drag_y = ui.add(egui::DragValue::new(&mut actor.transform.scale.y).speed(0.05).prefix("Y: "));
+                        let drag_z = ui.add(egui::DragValue::new(&mut actor.transform.scale.z).speed(0.05).prefix("Z: "));
+
+                        let lock_icon = if actor.transform.lock_scale_aspect { "🔒" } else { "🔓" };
+                        if ui.button(lock_icon).on_hover_text("Lock Aspect Ratio Scale (Proportional Scale)").clicked() {
+                            actor.transform.lock_scale_aspect = !actor.transform.lock_scale_aspect;
+                        }
+
+                        // Se o cadeado estiver ativado, propaga proporcionalmente a escala
+                        if actor.transform.lock_scale_aspect {
+                            if drag_x.changed() && old_x > 0.001 {
+                                let ratio = actor.transform.scale.x / old_x;
+                                actor.transform.scale.y = old_y * ratio;
+                                actor.transform.scale.z = old_z * ratio;
+                            } else if drag_y.changed() && old_y > 0.001 {
+                                let ratio = actor.transform.scale.y / old_y;
+                                actor.transform.scale.x = old_x * ratio;
+                                actor.transform.scale.z = old_z * ratio;
+                            } else if drag_z.changed() && old_z > 0.001 {
+                                let ratio = actor.transform.scale.z / old_z;
+                                actor.transform.scale.x = old_x * ratio;
+                                actor.transform.scale.y = old_y * ratio;
+                            }
+                        }
+
                         ui.end_row();
                     });
                 });
 
                 ui.separator();
 
-                // Seção 3: DirectionalLight & Light Components
+                // Seção 3: Light Components
                 if actor.primitive == PrimitiveType::DirectionalLight || actor.primitive == PrimitiveType::PointLight || actor.primitive == PrimitiveType::SkyLight {
                     ui.collapsing(RichText::new(format!("💡 Light Component ({:?})", actor.primitive)).strong().color(Color32::from_rgb(245, 158, 11)), |ui| {
                         Grid::new("light_component_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
@@ -95,7 +125,7 @@ pub fn show_details_panel(
                     ui.separator();
                 }
 
-                // Seção 4: ExponentialHeightFog / SkyAtmosphere / VolumetricCloud Components
+                // Seção 4: Atmosphere Components
                 if let Some(atm) = &mut actor.atmosphere_component {
                     ui.collapsing(RichText::new(format!("☁️ Atmosphere Component ({:?})", actor.primitive)).strong().color(Color32::from_rgb(100, 180, 255)), |ui| {
                         Grid::new("atm_component_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {

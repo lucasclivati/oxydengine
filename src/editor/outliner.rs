@@ -11,7 +11,6 @@ pub fn show_outliner_panel(
     let tr = &i18n.strings;
     let mut camera_focus_target: Option<glam::Vec3> = None;
 
-    // SidePanel com Borda 1px Nítida (#374151) idêntica à Unreal Engine 5 (Imagem 3)
     egui::SidePanel::right("oxyd_outliner_panel")
         .resizable(true)
         .default_width(layout.outliner_width)
@@ -85,7 +84,6 @@ pub fn show_outliner_panel(
 
                     let is_selected = selected_id == Some(actor.id);
 
-                    // Alternância de Cor de Fundo entre Cinza Escuro (#1A1C22) e Cinza Médio (#20232C)
                     let bg_color = if is_selected {
                         Color32::from_rgb(55, 65, 81)
                     } else if idx % 2 == 0 {
@@ -134,14 +132,19 @@ pub fn show_outliner_panel(
                                 ui.label(icon);
 
                                 let text_color = if is_selected { Color32::WHITE } else { Color32::from_rgb(220, 225, 235) };
-                                let name_label = ui.selectable_label(is_selected, RichText::new(&actor.name).color(text_color).strong());
+                                let avail = ui.available_width() - 80.0;
+                                let btn = egui::Button::new(RichText::new(&actor.name).color(text_color).strong())
+                                    .frame(false);
+                                
+                                let label_res = ui.add_sized(egui::vec2(avail, 20.0), btn);
 
-                                if name_label.clicked() {
+                                // CLIQUE COM BOTÃO ESQUERDO DO MOUSE SELECIONA O ATOR
+                                if label_res.clicked() {
                                     actor_to_select = Some(Some(actor.id));
                                 }
 
-                                // DUPLO-CLIQUE NO ITEM DO OUTLINER DÁ FOCO AUTOMÁTICO DA CÂMERA
-                                if name_label.double_clicked() {
+                                // DUPLO-CLIQUE DÁ FOCO COM ENQUADRAMENTO DE DISTÂNCIA AMPLA
+                                if label_res.double_clicked() {
                                     actor_to_select = Some(Some(actor.id));
                                     camera_focus_target = Some(actor.transform.position);
                                 }
@@ -152,7 +155,7 @@ pub fn show_outliner_panel(
                             });
                         }).response;
 
-                    // MENU DE CONTEXTO COM BOTÃO DIREITO DO MOUSE (Duplicar, Visibilidade, Deletar)
+                    // CLIQUE COM BOTÃO DIREITO DO MOUSE ABRE MENU DE CONTEXTO
                     item_res.context_menu(|ui| {
                         if ui.button("🎯 Focus Camera (F)").clicked() {
                             camera_focus_target = Some(actor.transform.position);
@@ -209,7 +212,6 @@ pub fn show_outliner_panel(
 
             ui.add_space(6.0);
 
-            // Contagem de Atores no Estilo Unreal Engine
             ui.horizontal(|ui| {
                 ui.label(RichText::new(format!("{} actors", world.actors.len())).small().color(Color32::GRAY));
                 if world.selected_actor_id.is_some() {

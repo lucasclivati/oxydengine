@@ -166,7 +166,6 @@ impl ApplicationHandler for App {
                             switch_to_launcher = true;
                         }
                         
-                        // DUPLO CLIQUE NO OUTLINER FOCA A CÂMERA AUTOMATICAMENTE
                         if let Some(target_pos) = show_outliner_panel(ctx, world, i18n, layout_settings) {
                             renderer.camera_controller.focus_target(target_pos);
                         }
@@ -174,10 +173,55 @@ impl ApplicationHandler for App {
                         show_details_panel(ctx, world, i18n, layout_settings);
                         show_content_browser_and_log(ctx, i18n, layout_settings, world, console_state);
 
-                        // O JOGO FICA RESTRITO À ÁREA CENTRAL DO VIEWPORT DO EDITOR (CentralPanel)
+                        // ÁREA CENTRAL DE VIEWPORT DO EDITOR (CentralPanel)
                         egui::CentralPanel::default()
                             .frame(egui::Frame::none().fill(egui::Color32::TRANSPARENT))
                             .show(ctx, |ui| {
+                                let rect = ui.max_rect();
+
+                                // RENDERIZADOR DO GIZMO DE VETORES DE ORIENTAÇÃO 3D (X, Y, Z) NO CANTO INFERIOR ESQUERDO ESTILO UNREAL ENGINE
+                                let gizmo_origin = egui::pos2(rect.min.x + 45.0, rect.max.y - 45.0);
+                                let painter = ui.painter();
+
+                                // Eixo X (Vermelho #EF4444)
+                                painter.line_segment(
+                                    [gizmo_origin, egui::pos2(gizmo_origin.x + 28.0, gizmo_origin.y)],
+                                    egui::Stroke::new(2.5, egui::Color32::from_rgb(239, 68, 68))
+                                );
+                                painter.text(
+                                    egui::pos2(gizmo_origin.x + 34.0, gizmo_origin.y - 6.0),
+                                    egui::Align2::LEFT_TOP,
+                                    "X",
+                                    egui::FontId::proportional(12.0),
+                                    egui::Color32::from_rgb(239, 68, 68)
+                                );
+
+                                // Eixo Y (Verde #22C55E)
+                                painter.line_segment(
+                                    [gizmo_origin, egui::pos2(gizmo_origin.x - 18.0, gizmo_origin.y + 18.0)],
+                                    egui::Stroke::new(2.5, egui::Color32::from_rgb(34, 197, 94))
+                                );
+                                painter.text(
+                                    egui::pos2(gizmo_origin.x - 26.0, gizmo_origin.y + 18.0),
+                                    egui::Align2::RIGHT_TOP,
+                                    "Y",
+                                    egui::FontId::proportional(12.0),
+                                    egui::Color32::from_rgb(34, 197, 94)
+                                );
+
+                                // Eixo Z (Azul #3B82F6)
+                                painter.line_segment(
+                                    [gizmo_origin, egui::pos2(gizmo_origin.x, gizmo_origin.y - 28.0)],
+                                    egui::Stroke::new(2.5, egui::Color32::from_rgb(59, 130, 246))
+                                );
+                                painter.text(
+                                    egui::pos2(gizmo_origin.x - 4.0, gizmo_origin.y - 40.0),
+                                    egui::Align2::LEFT_TOP,
+                                    "Z",
+                                    egui::FontId::proportional(12.0),
+                                    egui::Color32::from_rgb(59, 130, 246)
+                                );
+
                                 if !world.is_playing {
                                     match show_main_menu_widget(ui, world) {
                                         MainMenuAction::HostSoloGame => {

@@ -22,6 +22,7 @@ pub struct Transform {
     pub position: Vec3,
     pub rotation: Vec3,
     pub scale: Vec3,
+    pub lock_scale_aspect: bool,
 }
 
 impl Default for Transform {
@@ -30,6 +31,7 @@ impl Default for Transform {
             position: Vec3::ZERO,
             rotation: Vec3::ZERO,
             scale: Vec3::ONE,
+            lock_scale_aspect: false,
         }
     }
 }
@@ -128,6 +130,7 @@ impl Actor {
                 position,
                 rotation: Vec3::ZERO,
                 scale: Vec3::ONE,
+                lock_scale_aspect: false,
             },
             color,
             intensity: 1.0,
