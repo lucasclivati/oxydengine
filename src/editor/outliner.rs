@@ -22,7 +22,7 @@ pub fn show_outliner_panel(
         .frame(
             Frame::none()
                 .fill(Color32::from_rgb(18, 20, 26))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(45, 50, 62)))
+                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(45, 50, 62)))
                 .inner_margin(Margin::same(8.0))
         )
         .show(ctx, |ui| {
@@ -30,7 +30,7 @@ pub fn show_outliner_panel(
             Frame::none()
                 .fill(Color32::from_rgb(26, 29, 38))
                 .rounding(Rounding::same(4.0))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(45, 50, 62)))
+                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(45, 50, 62)))
                 .inner_margin(Margin::symmetric(10.0, 6.0))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
@@ -134,7 +134,7 @@ pub fn show_outliner_panel(
                     let frame_res = Frame::none()
                         .fill(bg_color)
                         .rounding(Rounding::same(3.0))
-                        .stroke(if is_selected { Stroke::new(1.0, Color32::from_rgb(245, 158, 11)) } else { Stroke::NONE })
+                        .stroke(if is_selected { Stroke::new(1.0_f32, Color32::from_rgb(245, 158, 11)) } else { Stroke::NONE })
                         .inner_margin(Margin::symmetric(6.0, 4.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {

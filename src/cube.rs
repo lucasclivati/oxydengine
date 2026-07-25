@@ -148,7 +148,7 @@ impl SphereMesh {
         for lat in 0..latitude_bands {
             for lon in 0..longitude_bands {
                 let first = (lat * (longitude_bands + 1) + lon) as u16;
-                let second = (first + longitude_bands as u16 + 1);
+                let second = first + longitude_bands as u16 + 1 ;
 
                 indices.push(first);
                 indices.push(second);

@@ -3,7 +3,6 @@ use crate::editor::{I18nManager, LayoutSettings, BottomTab};
 use crate::scene::{World, PrimitiveType};
 use glam::Vec3;
 use std::fs;
-use std::path::Path;
 
 pub struct ConsoleState {
     pub input_buffer: String,
@@ -103,7 +102,7 @@ pub fn show_content_browser_and_log(
                 .frame(
                     Frame::none()
                         .fill(Color32::from_rgb(20, 22, 28))
-                        .stroke(Stroke::new(1.0, Color32::from_rgb(50, 55, 68)))
+                        .stroke(Stroke::new(1.0_f32, Color32::from_rgb(50, 55, 68)))
                         .inner_margin(Margin::same(8.0))
                 )
                 .show(ctx, |ui| {
@@ -156,21 +155,16 @@ pub fn show_content_browser_and_log(
                                 if ui.button("📥 Import").clicked() {}
                                 if ui.button("💾 Save All").clicked() {}
                                 ui.separator();
-                                ui.label(RichText::new(format!("All > Content > AlchemySurvival57old > {}", curr_folder)).strong().color(Color32::from_rgb(245, 158, 11)));
+                                ui.label(RichText::new(format!("All > Content > TopDownExample > {}", curr_folder)).strong().color(Color32::from_rgb(245, 158, 11)));
                             });
 
                             ui.separator();
 
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 ui.horizontal_wrapped(|ui| {
-                                    let dir_path = format!("projects/AlchemySurvival57old/Content/{}", curr_folder);
-                                    let backup_dir = format!(r"C:\Users\lukstrike\Documents\Projects\AlchemySurvival57old\Content\{}", curr_folder);
+                                    let dir_path = format!("projects/TopDownExample/Content/{}", curr_folder);
 
-                                    let target_path = if Path::new(&dir_path).exists() {
-                                        dir_path
-                                    } else {
-                                        backup_dir
-                                    };
+                                    let target_path = dir_path;
 
                                     let mut found_items: Vec<(String, String, &'static str)> = Vec::new();
 
@@ -224,7 +218,7 @@ pub fn show_content_browser_and_log(
                                                     .strong()
                                                     .color(Color32::WHITE)
                                             ).fill(Color32::from_rgb(32, 36, 46))
-                                             .stroke(Stroke::new(1.0, Color32::from_rgb(50, 55, 68)))
+                                             .stroke(Stroke::new(1.0_f32, Color32::from_rgb(50, 55, 68)))
                                              .rounding(Rounding::same(6.0))
                                         );
 
@@ -271,7 +265,7 @@ pub fn show_content_browser_and_log(
                 .frame(
                     Frame::none()
                         .fill(Color32::from_rgb(20, 22, 28))
-                        .stroke(Stroke::new(1.0, Color32::from_rgb(50, 55, 68)))
+                        .stroke(Stroke::new(1.0_f32, Color32::from_rgb(50, 55, 68)))
                         .inner_margin(Margin::same(8.0))
                 )
                 .show(ctx, |ui| {
@@ -301,14 +295,14 @@ pub fn show_content_browser_and_log(
         .frame(
             Frame::none()
                 .fill(Color32::from_rgb(20, 22, 28))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(50, 55, 68)))
+                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(50, 55, 68)))
                 .inner_margin(Margin::symmetric(10.0, 6.0))
         )
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let is_drawer_open = layout.active_bottom_tab == BottomTab::ContentDrawer;
                 let drawer_bg = if is_drawer_open { Color32::from_rgb(45, 50, 65) } else { Color32::from_rgb(26, 28, 36) };
-                let drawer_stroke = if is_drawer_open { Stroke::new(1.0, Color32::from_rgb(245, 158, 11)) } else { Stroke::new(1.0, Color32::from_rgb(50, 55, 68)) };
+                let drawer_stroke = if is_drawer_open { Stroke::new(1.0_f32, Color32::from_rgb(245, 158, 11)) } else { Stroke::new(1.0_f32, Color32::from_rgb(50, 55, 68)) };
                 let drawer_text = if is_drawer_open { Color32::WHITE } else { Color32::from_rgb(190, 195, 210) };
 
                 // USAR egui::Button DIRETO GARANTE CLIQUE DO MOUSE 100% CONFIÁVEL
@@ -326,7 +320,7 @@ pub fn show_content_browser_and_log(
 
                 let is_log_open = layout.active_bottom_tab == BottomTab::OutputLog;
                 let log_bg = if is_log_open { Color32::from_rgb(45, 50, 65) } else { Color32::from_rgb(26, 28, 36) };
-                let log_stroke = if is_log_open { Stroke::new(1.0, Color32::from_rgb(245, 158, 11)) } else { Stroke::new(1.0, Color32::from_rgb(50, 55, 68)) };
+                let log_stroke = if is_log_open { Stroke::new(1.0_f32, Color32::from_rgb(245, 158, 11)) } else { Stroke::new(1.0_f32, Color32::from_rgb(50, 55, 68)) };
                 let log_text = if is_log_open { Color32::WHITE } else { Color32::from_rgb(190, 195, 210) };
 
                 let btn_log = egui::Button::new(RichText::new("📋 Output Log").color(log_text).strong())

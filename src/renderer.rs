@@ -3,7 +3,7 @@ use winit::window::Window;
 use crate::cube::{CubeMesh, SphereMesh, Vertex};
 use crate::camera::CameraController;
 use crate::scene::{World, PrimitiveType};
-use crate::ui::apply_oxyd_theme;
+use crate::ui::theme::{apply_custom_theme, CustomTheme};
 
 pub struct Renderer {
     pub surface: wgpu::Surface<'static>,
@@ -134,7 +134,7 @@ impl Renderer {
         let sphere_mesh = SphereMesh::new(&device);
 
         let egui_ctx = egui::Context::default();
-        apply_oxyd_theme(&egui_ctx);
+        apply_custom_theme(&egui_ctx, &CustomTheme::default());
 
         let egui_renderer = egui_wgpu::Renderer::new(
             &device,

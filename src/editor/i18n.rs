@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 use std::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct LocaleStrings {
     pub file_menu: String,
     pub new_level: String,
@@ -49,6 +50,26 @@ pub struct LocaleStrings {
     pub browse_folder: String,
     pub default_projects_dir: String,
     pub change_default_dir: String,
+    pub theme_customizer_title: String,
+    pub theme_presets_heading: String,
+    pub theme_subtitle: String,
+    pub standard_presets: String,
+    pub custom_saved_themes: String,
+    pub color_matrix_heading: String,
+    pub accent_highlight_color: String,
+    pub main_window_bg: String,
+    pub panel_dock_bg: String,
+    pub inactive_button_fill: String,
+    pub panel_border: String,
+    pub normal_text_label_color: String,
+    pub selected_active_button_text: String,
+    pub highlight_text_color: String,
+    pub revert_to_default_btn: String,
+    pub cancel_changes_btn: String,
+    pub save_as_new_theme_btn: String,
+    pub save_color_btn: String,
+    pub revert_color_btn: String,
+    pub cancel_color_btn: String,
 }
 
 impl Default for LocaleStrings {
@@ -100,6 +121,26 @@ impl Default for LocaleStrings {
             browse_folder: "Browse...".to_string(),
             default_projects_dir: "Default Projects Folder".to_string(),
             change_default_dir: "Change Default Folder".to_string(),
+            theme_customizer_title: "Theme & Color Customizer".to_string(),
+            theme_presets_heading: "Theme Presets & Custom Colors".to_string(),
+            theme_subtitle: "Fully customize the engine color palette in real time.".to_string(),
+            standard_presets: "Standard Theme Presets:".to_string(),
+            custom_saved_themes: "My Custom Saved Themes:".to_string(),
+            color_matrix_heading: "Color Customization Matrix".to_string(),
+            accent_highlight_color: "Accent / Highlight Color:".to_string(),
+            main_window_bg: "Main Window / Viewport Background:".to_string(),
+            panel_dock_bg: "Panel & Dock Background:".to_string(),
+            inactive_button_fill: "Inactive Button / Box Fill:".to_string(),
+            panel_border: "Panel Border (1px):".to_string(),
+            normal_text_label_color: "Normal Text & Label Color:".to_string(),
+            selected_active_button_text: "Selected / Active Button Text:".to_string(),
+            highlight_text_color: "Highlight Text Color (on Accent):".to_string(),
+            revert_to_default_btn: "Revert to Default".to_string(),
+            cancel_changes_btn: "Cancel Changes".to_string(),
+            save_as_new_theme_btn: "Save as New Custom Theme".to_string(),
+            save_color_btn: "Save Color".to_string(),
+            revert_color_btn: "Revert".to_string(),
+            cancel_color_btn: "Cancel".to_string(),
         }
     }
 }

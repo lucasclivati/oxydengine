@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::fs;
+use crate::ui::theme::CustomTheme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum BottomTab {
@@ -21,6 +22,16 @@ pub struct LayoutSettings {
     pub scale_snap: f32,
     pub show_map_assets: bool,
     pub show_details: bool,
+    #[serde(default)]
+    pub show_theme_window: bool,
+    #[serde(default)]
+    pub current_theme: CustomTheme,
+    #[serde(default)]
+    pub custom_themes: Vec<CustomTheme>,
+    #[serde(skip)]
+    pub theme_backup: Option<CustomTheme>,
+    #[serde(skip)]
+    pub picker_state: crate::ui::theme::ColorPickerPopupState,
 }
 
 impl Default for LayoutSettings {
@@ -37,6 +48,11 @@ impl Default for LayoutSettings {
             scale_snap: 0.25,
             show_map_assets: true,
             show_details: true,
+            show_theme_window: false,
+            current_theme: CustomTheme::oxyd_gold(),
+            custom_themes: Vec::new(),
+            theme_backup: None,
+            picker_state: crate::ui::theme::ColorPickerPopupState::default(),
         }
     }
 }

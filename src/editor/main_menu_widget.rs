@@ -25,7 +25,8 @@ pub fn show_main_menu_widget(
                 ui.set_width(320.0);
                 ui.vertical_centered(|ui| {
                     // Título limpo sem caracteres ou quadrados bugados
-                    ui.heading(RichText::new("ALCHEMY SURVIVAL").font(egui::FontId::proportional(26.0)).color(Color32::from_rgb(255, 107, 53)).strong());
+                    let accent = ui.visuals().selection.bg_fill;
+                    ui.heading(RichText::new("TOP DOWN EXAMPLE").font(egui::FontId::proportional(26.0)).color(accent).strong());
                     ui.label(RichText::new("v0.0.1").color(Color32::from_rgb(160, 170, 190)));
 
                     ui.add_space(20.0);

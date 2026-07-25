@@ -133,9 +133,9 @@ pub fn list_available_projects() -> Vec<ProjectConfig> {
         let _ = fs::create_dir_all(root_path);
     }
 
-    let default_proj_dir = root_path.join("AlchemySurvival57old");
+    let default_proj_dir = root_path.join("TopDownExample");
     if !default_proj_dir.exists() {
-        let proj = ProjectConfig::new("AlchemySurvival57old", &normalize_path(&default_proj_dir.to_string_lossy()));
+        let proj = ProjectConfig::new("TopDownExample", &normalize_path(&default_proj_dir.to_string_lossy()));
         let _ = proj.save();
     }
 

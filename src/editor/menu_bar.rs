@@ -15,6 +15,17 @@ pub fn show_top_bars(
     let mut switch_lang: Option<&'static str> = None;
     let mut switch_project_requested = false;
 
+    // Renderiza a janela de customização de temas e cores
+    crate::ui::theme::show_theme_manager_window(
+        ctx,
+        &mut layout.show_theme_window,
+        &mut layout.current_theme,
+        &mut layout.custom_themes,
+        &mut layout.theme_backup,
+        &mut layout.picker_state,
+        i18n,
+    );
+
     let mut style = (*ctx.style()).clone();
     style.visuals.button_frame = false;
     style.spacing.item_spacing.x = 14.0;
@@ -25,7 +36,7 @@ pub fn show_top_bars(
         .frame(
             Frame::none()
                 .fill(Color32::from_rgb(14, 16, 21))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(40, 44, 56)))
+                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(40, 44, 56)))
                 .inner_margin(Margin::symmetric(10.0, 6.0))
         )
         .show(ctx, |ui| {
@@ -128,9 +139,10 @@ pub fn show_top_bars(
                     }
                 });
 
-                // Nome do Projeto e LANGUAGE em Amarelo Ouro (#F59E0B)
+                let accent_color = layout.current_theme.accent_color;
+                let accent = Color32::from_rgba_unmultiplied(accent_color[0], accent_color[1], accent_color[2], accent_color[3]);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.menu_button(RichText::new("LANGUAGE").color(Color32::from_rgb(245, 158, 11)).strong(), |ui| {
+                    ui.menu_button(RichText::new("Language").color(accent).strong(), |ui| {
                         egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
                             let langs = [
                                 ("en", "English (US)"),
@@ -174,6 +186,12 @@ pub fn show_top_bars(
                         });
                     });
 
+                    ui.add_space(8.0);
+                    // BOTAO THEMES (ABRE A JANELA COMPLETA DE CUSTOMIZAÇÃO DE CORES)
+                    if ui.button(RichText::new("Themes").color(accent).strong()).clicked() {
+                        layout.show_theme_window = !layout.show_theme_window;
+                    }
+
                     ui.label(RichText::new(project_name).color(Color32::from_rgb(180, 190, 210)).strong());
                 });
             });
@@ -193,7 +211,7 @@ pub fn show_top_bars(
         .frame(
             Frame::none()
                 .fill(Color32::from_rgb(18, 20, 26))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(40, 44, 56)))
+                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(40, 44, 56)))
                 .inner_margin(Margin::symmetric(8.0, 4.0))
         )
         .show(ctx, |ui| {
@@ -204,7 +222,7 @@ pub fn show_top_bars(
                 for (idx, tab_title) in open_tabs.iter().enumerate() {
                     let is_active = active_idx == idx;
                     let bg_fill = if is_active { Color32::from_rgb(40, 45, 58) } else { Color32::from_rgb(22, 24, 32) };
-                    let stroke = if is_active { Stroke::new(1.0, Color32::from_rgb(245, 158, 11)) } else { Stroke::NONE };
+                    let stroke = if is_active { Stroke::new(1.0_f32, Color32::from_rgb(245, 158, 11)) } else { Stroke::NONE };
                     let text_color = if is_active { Color32::WHITE } else { Color32::GRAY };
 
                     egui::Frame::none()
@@ -257,7 +275,7 @@ pub fn show_top_bars(
         .frame(
             Frame::none()
                 .fill(Color32::from_rgb(22, 25, 32))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(40, 44, 56)))
+                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(40, 44, 56)))
                 .inner_margin(Margin::symmetric(8.0, 4.0))
         )
         .show(ctx, |ui| {

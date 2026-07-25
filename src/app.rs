@@ -3,7 +3,7 @@ use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
-use winit::window::{Window, WindowId};
+use winit::window::{Window, WindowId, Theme};
 
 use crate::renderer::Renderer;
 use crate::scene::World;
@@ -68,6 +68,7 @@ impl ApplicationHandler for App {
                 .with_title("Oxyd Engine Hub")
                 .with_inner_size(winit::dpi::PhysicalSize::new(1280, 800))
                 .with_maximized(true)
+                .with_theme(Some(Theme::Dark))
                 .with_visible(true);
 
             if let Some(icon) = load_window_icon() {
@@ -78,6 +79,7 @@ impl ApplicationHandler for App {
             window.set_visible(true);
 
             let renderer = pollster::block_on(Renderer::new(window.clone()));
+            crate::ui::theme::apply_custom_theme(&renderer.egui_ctx, &self.layout_settings.current_theme);
             
             let egui_winit_state = egui_winit::State::new(
                 renderer.egui_ctx.clone(),
@@ -149,7 +151,7 @@ impl ApplicationHandler for App {
                 let mut project_to_open: Option<ProjectConfig> = None;
                 let mut switch_to_launcher = false;
 
-                let proj_name = active_project.as_ref().map(|p| p.name.as_str()).unwrap_or("AlchemySurvival57old");
+                let proj_name = active_project.as_ref().map(|p| p.name.as_str()).unwrap_or("TopDownExample");
 
                 let yaw = renderer.camera_controller.yaw;
                 let pitch = renderer.camera_controller.pitch;
@@ -222,24 +224,24 @@ impl ApplicationHandler for App {
 
                                 // Eixo X (Vermelho #EF4444)
                                 let end_x = egui::pos2(gizmo_origin.x + dir_x.x * arm_len, gizmo_origin.y - dir_x.y * arm_len);
-                                painter.line_segment([gizmo_origin, end_x], egui::Stroke::new(2.5, egui::Color32::from_rgb(239, 68, 68)));
+                                painter.line_segment([gizmo_origin, end_x], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(239, 68, 68)));
                                 painter.text(end_x, egui::Align2::CENTER_CENTER, "X", egui::FontId::proportional(12.0), egui::Color32::from_rgb(239, 68, 68));
 
                                 // Eixo Y (Verde #22C55E)
                                 let end_y = egui::pos2(gizmo_origin.x + dir_y.x * arm_len, gizmo_origin.y - dir_y.y * arm_len);
-                                painter.line_segment([gizmo_origin, end_y], egui::Stroke::new(2.5, egui::Color32::from_rgb(34, 197, 94)));
+                                painter.line_segment([gizmo_origin, end_y], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(34, 197, 94)));
                                 painter.text(end_y, egui::Align2::CENTER_CENTER, "Y", egui::FontId::proportional(12.0), egui::Color32::from_rgb(34, 197, 94));
 
                                 // Eixo Z (Azul #3B82F6)
                                 let end_z = egui::pos2(gizmo_origin.x + dir_z.x * arm_len, gizmo_origin.y - dir_z.y * arm_len);
-                                painter.line_segment([gizmo_origin, end_z], egui::Stroke::new(2.5, egui::Color32::from_rgb(59, 130, 246)));
+                                painter.line_segment([gizmo_origin, end_z], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(59, 130, 246)));
                                 painter.text(end_z, egui::Align2::CENTER_CENTER, "Z", egui::FontId::proportional(12.0), egui::Color32::from_rgb(59, 130, 246));
 
                                 // WIDGET OVERLAY DO MENU INICIAL SE NÃO ESTIVER EM JOGO
                                 if !world.is_playing {
                                     match show_main_menu_widget(ui, world) {
                                         MainMenuAction::HostSoloGame => {
-                                            log::info!("Iniciando partida solo no AlchemySurvival57old...");
+                                            log::info!("Iniciando partida solo no TopDownExample...");
                                             world.is_playing = true;
                                         }
                                         MainMenuAction::JoinLobby => {

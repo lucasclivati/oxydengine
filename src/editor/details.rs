@@ -17,7 +17,7 @@ pub fn show_details_panel(
         .frame(
             Frame::none()
                 .fill(Color32::from_rgb(20, 22, 28))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(50, 55, 68)))
+                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(50, 55, 68)))
                 .inner_margin(Margin::same(8.0))
         )
         .show(ctx, |ui| {
@@ -25,7 +25,7 @@ pub fn show_details_panel(
             Frame::none()
                 .fill(Color32::from_rgb(28, 31, 40))
                 .rounding(Rounding::same(4.0))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(50, 55, 68)))
+                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(50, 55, 68)))
                 .inner_margin(Margin::symmetric(10.0, 6.0))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {

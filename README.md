@@ -28,18 +28,14 @@ Designed for AI compatibility, high frame rates, and zero black-box friction, Ox
 - ⚡ **3D Physics & AABB Collision Engine**: Physics simulation with `-9.8 m/s²` gravity, ground detection, and Play/Stop simulation controls.
 - ↩️ **Full Undo & Redo History System**: Scene state snapshots with `Ctrl+Z` (Undo) and `Ctrl+Shift+Z` / `Ctrl+Y` (Redo).
 - 📑 **Map Assets & Details Panels**: Double-click item to focus camera, right-click context menu (Duplicate, Toggle Visibility, Delete), and alternating row highlight.
-- 🎨 **Rust & Warm Gold Aesthetic**: Sleek slate-dark theme with nítid 1px panel borders (`#374151`) and high-contrast typography.
 - 🌐 **30+ Languages i18n System**: Full internationalization system with a dedicated `LANGUAGE` picker.
 
 ---
 
-## 🎮 Projects & Level Scenes
+## 🎮 Example Projects
 
-Oxyd Engine includes pre-configured levels for the flagship project **AlchemySurvival57old**:
-- ⛰ **`Map_MainMenu`**: Open-world landscape with mountain peaks, ancient alchemical altar, torch lighting, and UI widget overlay.
-- 🌐 **`Map_Lobby`**: Multiplayer character meeting hall.
-- 🧟 **`Map_CityZombieSurvival`**: Urban survival arena with wave spawner logic.
-- 🔄 **`Map_Transition`**: Connection and level switching map.
+Oxyd Engine includes the following pre-configured example project:
+- 🏰 **`TopDownExample`**: 3D starter example project featuring pre-configured levels (`Map_MainMenu`, `Map_Lobby`, `Map_CityZombieSurvival`, `Map_Transition`).
 
 ---
 
@@ -62,7 +58,7 @@ cargo run
 cargo build --release
 ```
 
-After building, run `OxydEngine.exe` directly on Windows without any terminal background windows!
+After building, run `OxydEngine.exe` directly on Windows!
 
 ---
 
