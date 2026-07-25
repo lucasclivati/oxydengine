@@ -86,6 +86,14 @@ pub fn show_launcher_gui(
         i18n,
     );
 
+    // Renderiza a janela interativa do Gerenciador de Contas & Tripo3D AI
+    crate::editor::show_accounts_manager_window(
+        ctx,
+        &mut state.layout_settings.show_accounts_window,
+        &mut state.layout_settings.account_settings,
+        i18n,
+    );
+
     // Top Bar estilo Oxyd Hub
     egui::TopBottomPanel::top("launcher_top_bar").show(ctx, |ui| {
         ui.add_space(4.0);
@@ -95,6 +103,13 @@ pub fn show_launcher_gui(
             ui.label(RichText::new("v0.1.0").color(Color32::from_rgb(140, 145, 160)));
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.add_space(8.0);
+
+                // BOTAO ACCOUNTS (NA DIREITA DO BOTAO LANGUAGE)
+                if ui.button(RichText::new("Accounts").color(accent).strong()).clicked() {
+                    state.layout_settings.show_accounts_window = !state.layout_settings.show_accounts_window;
+                }
+
                 ui.add_space(8.0);
                 // MENU LANGUAGE
                 ui.menu_button(RichText::new("Language").color(accent).strong(), |ui| {

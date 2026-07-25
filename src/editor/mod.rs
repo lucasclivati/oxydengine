@@ -6,6 +6,7 @@ pub mod outliner;
 pub mod details;
 pub mod content_browser;
 pub mod main_menu_widget;
+pub mod accounts;
 
 pub use i18n::*;
 pub use layout_settings::*;
@@ -15,3 +16,4 @@ pub use outliner::*;
 pub use details::*;
 pub use content_browser::*;
 pub use main_menu_widget::*;
+pub use accounts::*;

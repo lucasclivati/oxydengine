@@ -25,6 +25,10 @@ pub struct LayoutSettings {
     #[serde(default)]
     pub show_theme_window: bool,
     #[serde(default)]
+    pub show_accounts_window: bool,
+    #[serde(default)]
+    pub account_settings: crate::editor::AccountSettings,
+    #[serde(default)]
     pub current_theme: CustomTheme,
     #[serde(default)]
     pub custom_themes: Vec<CustomTheme>,
@@ -49,6 +53,8 @@ impl Default for LayoutSettings {
             show_map_assets: true,
             show_details: true,
             show_theme_window: false,
+            show_accounts_window: false,
+            account_settings: crate::editor::AccountSettings::default(),
             current_theme: CustomTheme::oxyd_gold(),
             custom_themes: Vec::new(),
             theme_backup: None,

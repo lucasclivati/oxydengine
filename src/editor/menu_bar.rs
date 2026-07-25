@@ -26,6 +26,14 @@ pub fn show_top_bars(
         i18n,
     );
 
+    // Renderiza a janela do Gerenciador de Contas & Tripo3D AI
+    crate::editor::show_accounts_manager_window(
+        ctx,
+        &mut layout.show_accounts_window,
+        &mut layout.account_settings,
+        i18n,
+    );
+
     let mut style = (*ctx.style()).clone();
     style.visuals.button_frame = false;
     style.spacing.item_spacing.x = 14.0;
@@ -142,6 +150,13 @@ pub fn show_top_bars(
                 let accent_color = layout.current_theme.accent_color;
                 let accent = Color32::from_rgba_unmultiplied(accent_color[0], accent_color[1], accent_color[2], accent_color[3]);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // BOTAO ACCOUNTS (NA DIREITA DO BOTAO LANGUAGE)
+                    if ui.button(RichText::new("Accounts").color(accent).strong()).clicked() {
+                        layout.show_accounts_window = !layout.show_accounts_window;
+                    }
+
+                    ui.add_space(8.0);
+
                     ui.menu_button(RichText::new("Language").color(accent).strong(), |ui| {
                         egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
                             let langs = [
