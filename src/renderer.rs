@@ -139,7 +139,7 @@ impl Renderer {
         let egui_renderer = egui_wgpu::Renderer::new(
             &device,
             config.format,
-            Some(wgpu::TextureFormat::Depth32Float),
+            None,
             1,
             false,
         );
@@ -227,6 +227,14 @@ impl Renderer {
         for (id, image_delta) in &textures_delta.set {
             self.egui_renderer.update_texture(&self.device, &self.queue, *id, image_delta);
         }
+
+        self.egui_renderer.update_buffers(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            clipped_primitives,
+            &screen_descriptor,
+        );
 
         // Render Pass 3D
         {
