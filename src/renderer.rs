@@ -25,14 +25,12 @@ impl Renderer {
     pub async fn new(window: Arc<Window>) -> Self {
         let size = window.inner_size();
 
-        // 1. Instância e Surface
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
         let surface = instance.create_surface(window.clone()).unwrap();
 
-        // 2. Adapter & Device
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -55,7 +53,6 @@ impl Renderer {
             .await
             .expect("Falha ao criar Device WGPU.");
 
-        // 3. Surface Config
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps
             .formats
@@ -76,27 +73,22 @@ impl Renderer {
         };
         surface.configure(&device, &config);
 
-        // 4. Câmera
         let aspect_ratio = config.width as f32 / config.height as f32;
         let camera_controller = CameraController::new(&device, aspect_ratio);
 
-        // 5. Shader Module
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("OxydEngine WGSL Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
 
-        // 6. Pipeline Layout
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &[&camera_controller.bind_group_layout],
             push_constant_ranges: &[],
         });
 
-        // 7. Depth Buffer Texture
         let (depth_texture, depth_view) = Self::create_depth_texture(&device, &config);
 
-        // 8. Render Pipeline 3D
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("OxydEngine 3D Pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -141,10 +133,8 @@ impl Renderer {
             cache: None,
         });
 
-        // 9. Mesh
         let cube_mesh = CubeMesh::new(&device);
 
-        // 10. Inicialização Egui + Tema UE5
         let egui_ctx = egui::Context::default();
         egui_extras::install_image_loaders(&egui_ctx);
         apply_oxyd_theme(&egui_ctx);
@@ -209,7 +199,6 @@ impl Renderer {
     pub fn update(&mut self, dt: f32, world: &mut World) {
         world.update_simulation(dt);
         self.camera_controller.update(dt);
-        self.camera_controller.write_buffer(&self.queue);
     }
 
     pub fn render(
@@ -225,7 +214,6 @@ impl Renderer {
             label: Some("Main Render Encoder"),
         });
 
-        // 1. Atualizar texturas do Egui
         for (id, image_delta) in &textures_delta.set {
             self.egui_renderer.update_texture(&self.device, &self.queue, *id, image_delta);
         }
@@ -243,7 +231,7 @@ impl Renderer {
             &screen_descriptor,
         );
 
-        // 2. Render Pass 3D (Cena do Mundo com fundo escuro UE5 #141414)
+        // Render Pass 3D com fundo azulado frio #181A20 da paleta Rust & Steel
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("3D World Render Pass"),
@@ -251,7 +239,7 @@ impl Renderer {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.08, g: 0.08, b: 0.08, a: 1.0 }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.09, g: 0.10, b: 0.13, a: 1.0 }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -272,15 +260,27 @@ impl Renderer {
             render_pass.set_vertex_buffer(0, self.cube_mesh.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.cube_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            // Renderizar cada ator visível da cena 3D
+            // Renderizar cada ator visível da cena 3D com suas transformações corretas
             for actor in &world.actors {
                 if actor.visible {
+                    let rot = glam::Quat::from_euler(
+                        glam::EulerRot::XYZ,
+                        actor.transform.rotation.x.to_radians(),
+                        actor.transform.rotation.y.to_radians(),
+                        actor.transform.rotation.z.to_radians(),
+                    );
+                    let model = glam::Mat4::from_scale_rotation_translation(
+                        actor.transform.scale,
+                        rot,
+                        actor.transform.position,
+                    );
+                    self.camera_controller.update_actor_matrix(&self.queue, model);
                     render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..1);
                 }
             }
         }
 
-        // 3. Render Pass Egui UI (Sobreposição dos Painéis UE5)
+        // Render Pass Egui UI (Sobreposição)
         {
             let ui_render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Egui UI Render Pass"),
@@ -300,12 +300,11 @@ impl Renderer {
             self.egui_renderer.render(&mut ui_render_pass.forget_lifetime(), clipped_primitives, &screen_descriptor);
         }
 
-        // 4. Liberar texturas antigas do egui
         for id in &textures_delta.free {
             self.egui_renderer.free_texture(id);
         }
 
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.queue.submit(Some(encoder.finish()));
         output.present();
 
         Ok(())

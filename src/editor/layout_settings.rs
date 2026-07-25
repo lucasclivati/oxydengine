@@ -26,7 +26,7 @@ impl Default for LayoutSettings {
             active_bottom_tab: BottomTab::None,
             content_drawer_height: 260.0,
             active_tab_index: 0,
-            open_tabs: vec!["Map_MainMenu".to_string(), "Player_Blueprint".to_string()],
+            open_tabs: vec!["Map_MainMenu".to_string()],
         }
     }
 }
@@ -34,7 +34,10 @@ impl Default for LayoutSettings {
 impl LayoutSettings {
     pub fn load() -> Self {
         if let Ok(content) = fs::read_to_string("layout_settings.json") {
-            if let Ok(settings) = serde_json::from_str::<LayoutSettings>(&content) {
+            if let Ok(mut settings) = serde_json::from_str::<LayoutSettings>(&content) {
+                if settings.open_tabs.is_empty() {
+                    settings.open_tabs = vec!["Map_MainMenu".to_string()];
+                }
                 return settings;
             }
         }

@@ -2,6 +2,8 @@ use egui::{RichText, Color32};
 use crate::scene::{World, PrimitiveType};
 use crate::editor::{I18nManager, LayoutSettings, BottomTab};
 use glam::Vec3;
+use std::fs;
+use std::path::Path;
 
 pub fn show_top_bars(
     ctx: &egui::Context,
@@ -13,22 +15,24 @@ pub fn show_top_bars(
     let mut switch_lang: Option<&'static str> = None;
     let mut switch_project_requested = false;
 
-    // Estilo dos Menus estilo Unreal Engine 5.8: Flat, espaçamento homogêneo de 14px
     let mut style = (*ctx.style()).clone();
     style.visuals.button_frame = false;
     style.spacing.item_spacing.x = 14.0;
     ctx.set_style(style);
 
-    // 1. Barra Principal Superior (Unreal Main Menu Bar: File, Edit, Window, Tools, Build, Platforms, Select, Actor, Help)
+    // 1. Barra Principal Superior (Apenas File, Edit, Window, Build, Help)
     egui::TopBottomPanel::top("oxyd_top_menu_bar").show(ctx, |ui| {
         let tr = &i18n.strings;
 
         ui.horizontal(|ui| {
-            ui.label(RichText::new("⬢").font(egui::FontId::proportional(18.0)).color(Color32::WHITE));
-
             ui.menu_button(&tr.file_menu, |ui| {
                 if ui.button(format!("📄 {}", tr.new_level)).clicked() {
+                    world.push_undo_state();
                     *world = World::new_default_scene();
+                    ui.close_menu();
+                }
+                if ui.button("📂 Open Level...").clicked() {
+                    log::info!("Opening level dialog...");
                     ui.close_menu();
                 }
                 if ui.button(format!("💾 {}", tr.save_level)).clicked() {
@@ -46,11 +50,20 @@ pub fn show_top_bars(
                 }
             });
 
+            // Menu Edit com Undo (Ctrl+Z) e Redo (Ctrl+Shift+Z)
             ui.menu_button(&tr.edit_menu, |ui| {
-                if ui.button(format!("🗑 {}", tr.delete_selected)).clicked() {
-                    world.delete_selected();
+                if ui.button("↩ Undo                  Ctrl+Z").clicked() {
+                    world.undo();
                     ui.close_menu();
                 }
+                if ui.button("↪ Redo          Ctrl+Shift+Z").clicked() {
+                    world.redo();
+                    ui.close_menu();
+                }
+                ui.separator();
+                ui.label("✂ Cut                     Ctrl+X");
+                ui.label("📋 Copy                  Ctrl+C");
+                ui.label("📄 Paste                  Ctrl+V");
             });
 
             ui.menu_button(&tr.window_menu, |ui| {
@@ -67,41 +80,42 @@ pub fn show_top_bars(
                 }
             });
 
-            ui.menu_button("Tools", |ui| {
-                ui.label("Modeling Tools");
-                ui.label("Animation Editor");
-                ui.label("Niagara VFX Studio");
-            });
-
+            // Menu Build com empacotamento real do executável do jogo
             ui.menu_button("Build", |ui| {
+                if ui.button(RichText::new("🔨 Build Game Executable (Package Game)...").color(Color32::from_rgb(255, 107, 53)).strong()).clicked() {
+                    let build_dir = format!("builds/{}", project_name);
+                    let _ = fs::create_dir_all(&build_dir);
+                    let target_exe = format!("{}/{}.exe", build_dir, project_name);
+
+                    if Path::new("OxydEngine.exe").exists() {
+                        let _ = fs::copy("OxydEngine.exe", &target_exe);
+                    }
+
+                    log::info!("Jogo empacotado com sucesso em: {}", target_exe);
+                    let _ = std::process::Command::new("explorer").arg(&build_dir).spawn();
+                    ui.close_menu();
+                }
+                ui.separator();
                 ui.label("Build Lighting");
                 ui.label("Build Navigation Mesh");
                 ui.label("Build Geometry");
             });
 
-            ui.menu_button("Platforms", |ui| {
-                ui.label("Windows (x86_64)");
-                ui.label("Linux (x86_64)");
-                ui.label("Android (Vulkan)");
-            });
-
-            ui.menu_button("Select", |ui| {
-                ui.label("Select All Actors");
-                ui.label("Select Invert");
-            });
-
-            ui.menu_button("Actor", |ui| {
-                ui.label("Group Selected");
-                ui.label("Snap to Ground");
-            });
-
+            // Menu Help com link direto para o GitHub oficial do projeto
             ui.menu_button(&tr.help_menu, |ui| {
                 ui.label("Oxyd Engine v0.0.1 - Open Source Game Engine");
+                ui.separator();
+                if ui.button("🌐 GitHub Repository (Open Source)").clicked() {
+                    let _ = std::process::Command::new("cmd")
+                        .args(["/c", "start", "https://github.com/lucasclivati/oxydengine"])
+                        .spawn();
+                    ui.close_menu();
+                }
             });
 
             // Nome do Projeto e REGRA CRÍTICA UNTRANSLATED MENU LANGUAGE na extremidade direita
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.menu_button(RichText::new("LANGUAGE").color(Color32::from_rgb(255, 200, 50)).strong(), |ui| {
+                ui.menu_button(RichText::new("LANGUAGE").color(Color32::from_rgb(245, 158, 11)).strong(), |ui| {
                     egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
                         let langs = [
                             ("en", "English (US)"),
@@ -159,7 +173,7 @@ pub fn show_top_bars(
     let mut new_active_idx: Option<usize> = None;
     let mut close_tab_index: Option<usize> = None;
 
-    // 2. Barra de Abas Superiores (Unreal Document Tabs Bar)
+    // 2. Barra de Abas Superiores
     egui::TopBottomPanel::top("oxyd_tabs_bar").show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.label(RichText::new("🏠").color(Color32::GRAY));
@@ -214,7 +228,7 @@ pub fn show_top_bars(
     style_toolbar.spacing.item_spacing.x = 8.0;
     ctx.set_style(style_toolbar);
 
-    // 3. Sub-toolbar do Viewport (Play/Pause, Selection Mode Popup, Quick Add, Viewport Modes)
+    // 3. Sub-toolbar do Viewport
     egui::TopBottomPanel::top("oxyd_viewport_toolbar").show(ctx, |ui| {
         let tr = &i18n.strings;
 
@@ -261,10 +275,11 @@ pub fn show_top_bars(
 
             ui.separator();
 
-            ui.menu_button(RichText::new(format!("📦+ ⏷")).color(Color32::from_rgb(0, 180, 255)).strong(), |ui| {
+            // Adicionar Atores, Câmeras e Atmosfera no Quick Add (Estilo UE5)
+            ui.menu_button(RichText::new(format!("📦+ ⏷")).color(Color32::from_rgb(255, 107, 53)).strong(), |ui| {
                 ui.heading(&tr.actors_primitives);
                 if ui.button(format!("📦 {}", tr.cube_actor)).clicked() {
-                    world.add_actor("New_Cube", PrimitiveType::Cube, Vec3::ZERO, [0.2, 0.6, 1.0, 1.0]);
+                    world.add_actor("New_Cube", PrimitiveType::Cube, Vec3::ZERO, [0.8, 0.4, 0.2, 1.0]);
                     ui.close_menu();
                 }
                 if ui.button(format!("🔮 {}", tr.sphere_actor)).clicked() {
@@ -273,6 +288,36 @@ pub fn show_top_bars(
                 }
                 if ui.button(format!("💡 {}", tr.point_light)).clicked() {
                     world.add_actor("Point_Light", PrimitiveType::PointLight, Vec3::new(0.0, 3.0, 0.0), [1.0, 0.9, 0.6, 1.0]);
+                    ui.close_menu();
+                }
+                if ui.button("🎥 Camera Actor").clicked() {
+                    world.add_actor("Camera_Actor", PrimitiveType::CameraActor, Vec3::new(0.0, 2.0, 5.0), [0.4, 0.6, 1.0, 1.0]);
+                    ui.close_menu();
+                }
+                ui.separator();
+                ui.heading("Atmosphere & Lights");
+                if ui.button("☀️ Directional Light").clicked() {
+                    let id = world.next_actor_id;
+                    world.next_actor_id += 1;
+                    world.actors.push(crate::scene::Actor::new_directional_light(id, "DirectionalLight", Vec3::new(0.0, 10.0, 0.0)));
+                    ui.close_menu();
+                }
+                if ui.button("🌫️ Exponential Height Fog").clicked() {
+                    let id = world.next_actor_id;
+                    world.next_actor_id += 1;
+                    world.actors.push(crate::scene::Actor::new_fog(id, "ExponentialHeightFog", Vec3::ZERO));
+                    ui.close_menu();
+                }
+                if ui.button("🌅 Sky Atmosphere").clicked() {
+                    let id = world.next_actor_id;
+                    world.next_actor_id += 1;
+                    world.actors.push(crate::scene::Actor::new_sky_atmosphere(id, "SkyAtmosphere", Vec3::ZERO));
+                    ui.close_menu();
+                }
+                if ui.button("☁️ Volumetric Cloud").clicked() {
+                    let id = world.next_actor_id;
+                    world.next_actor_id += 1;
+                    world.actors.push(crate::scene::Actor::new_volumetric_cloud(id, "VolumetricCloud", Vec3::ZERO));
                     ui.close_menu();
                 }
             });

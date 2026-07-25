@@ -64,9 +64,11 @@ impl ApplicationHandler for App {
         if self.renderer.is_none() {
             log::info!("Inicializando Oxyd Engine v0.0.1...");
             
+            // JANELA MAXIMIZADA POR PADRÃO NO MONITOR ATUAL
             let mut window_attributes = Window::default_attributes()
                 .with_title("Oxyd Engine Hub")
                 .with_inner_size(winit::dpi::PhysicalSize::new(1280, 800))
+                .with_maximized(true)
                 .with_visible(true);
 
             if let Some(icon) = load_window_icon() {
@@ -124,6 +126,17 @@ impl ApplicationHandler for App {
                 let dt = now.duration_since(self.last_frame).as_secs_f32();
                 self.last_frame = now;
 
+                // NAVEGAÇÃO DE VÔO UNREAL ENGINE NO VIEWPORT (Botão Direito + WASD / QE)
+                if self.mode == AppMode::Editor {
+                    renderer.camera_controller.process_input(&renderer.egui_ctx, dt);
+                    
+                    if renderer.egui_ctx.input(|i| i.key_pressed(egui::Key::F)) {
+                        if let Some(actor) = self.world.get_selected_actor_mut() {
+                            renderer.camera_controller.focus_target(actor.transform.position);
+                        }
+                    }
+                }
+
                 let egui_state = self.egui_winit_state.as_mut().unwrap();
                 let raw_input = egui_state.take_egui_input(renderer.window.as_ref());
 
@@ -152,27 +165,36 @@ impl ApplicationHandler for App {
                         if let Some(true) = show_top_bars(ctx, world, i18n, layout_settings, proj_name) {
                             switch_to_launcher = true;
                         }
-                        show_outliner_panel(ctx, world, i18n, layout_settings);
+                        
+                        // DUPLO CLIQUE NO OUTLINER FOCA A CÂMERA AUTOMATICAMENTE
+                        if let Some(target_pos) = show_outliner_panel(ctx, world, i18n, layout_settings) {
+                            renderer.camera_controller.focus_target(target_pos);
+                        }
+
                         show_details_panel(ctx, world, i18n, layout_settings);
                         show_content_browser_and_log(ctx, i18n, layout_settings, world, console_state);
 
-                        // Exibe a UI Widget WBP_MainMenu do AlchemySurvival57old sobre a paisagem 3D
-                        if !world.is_playing {
-                            match show_main_menu_widget(ctx, world) {
-                                MainMenuAction::HostSoloGame => {
-                                    log::info!("Iniciando partida solo no AlchemySurvival57old...");
-                                    world.is_playing = true;
+                        // O JOGO FICA RESTRITO À ÁREA CENTRAL DO VIEWPORT DO EDITOR (CentralPanel)
+                        egui::CentralPanel::default()
+                            .frame(egui::Frame::none().fill(egui::Color32::TRANSPARENT))
+                            .show(ctx, |ui| {
+                                if !world.is_playing {
+                                    match show_main_menu_widget(ui, world) {
+                                        MainMenuAction::HostSoloGame => {
+                                            log::info!("Iniciando partida solo no AlchemySurvival57old...");
+                                            world.is_playing = true;
+                                        }
+                                        MainMenuAction::JoinLobby => {
+                                            log::info!("Carregando Map_Lobby...");
+                                            *world = World::new_third_person_level();
+                                        }
+                                        MainMenuAction::QuitGame => {
+                                            std::process::exit(0);
+                                        }
+                                        _ => {}
+                                    }
                                 }
-                                MainMenuAction::JoinLobby => {
-                                    log::info!("Carregando Map_Lobby...");
-                                    *world = World::new_third_person_level();
-                                }
-                                MainMenuAction::QuitGame => {
-                                    std::process::exit(0);
-                                }
-                                _ => {}
-                            }
-                        }
+                            });
                     }
                 });
 
@@ -184,7 +206,6 @@ impl ApplicationHandler for App {
                     renderer.window.set_title("Oxyd Engine Hub");
                 }
 
-                // Abrir Projeto Selecionado: Carrega estritamente o Map_MainMenu do AlchemySurvival57old com a paisagem 3D
                 if let Some(proj) = project_to_open {
                     log::info!("Abrindo projeto: {} ({})", proj.name, proj.path);
                     renderer.window.set_title(&format!("Oxyd Engine - {}", proj.name));

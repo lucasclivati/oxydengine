@@ -28,43 +28,43 @@ impl Vertex {
     }
 }
 
-// 24 Vértices (4 por face para normais/cores distintas por face do cubo 3D)
+// 24 Vértices com tons de pedra, pedra alquímica e ferrugem industrial (Sem tons de azul elétrico!)
 pub const VERTICES: &[Vertex] = &[
-    // Front face (Azul Claro / Ciano Elétrico)
-    Vertex { position: [-0.5, -0.5,  0.5], color: [0.1, 0.6, 1.0] },
-    Vertex { position: [ 0.5, -0.5,  0.5], color: [0.1, 0.6, 1.0] },
-    Vertex { position: [ 0.5,  0.5,  0.5], color: [0.1, 0.6, 1.0] },
-    Vertex { position: [-0.5,  0.5,  0.5], color: [0.1, 0.6, 1.0] },
+    // Front face (Ferrugem Alquímica Quente)
+    Vertex { position: [-0.5, -0.5,  0.5], color: [0.65, 0.32, 0.22] },
+    Vertex { position: [ 0.5, -0.5,  0.5], color: [0.65, 0.32, 0.22] },
+    Vertex { position: [ 0.5,  0.5,  0.5], color: [0.65, 0.32, 0.22] },
+    Vertex { position: [-0.5,  0.5,  0.5], color: [0.65, 0.32, 0.22] },
 
-    // Back face (Azul Escuro / Profundo)
-    Vertex { position: [-0.5, -0.5, -0.5], color: [0.0, 0.2, 0.6] },
-    Vertex { position: [-0.5,  0.5, -0.5], color: [0.0, 0.2, 0.6] },
-    Vertex { position: [ 0.5,  0.5, -0.5], color: [0.0, 0.2, 0.6] },
-    Vertex { position: [ 0.5, -0.5, -0.5], color: [0.0, 0.2, 0.6] },
+    // Back face (Cinza Pedra de Ruínas)
+    Vertex { position: [-0.5, -0.5, -0.5], color: [0.22, 0.25, 0.30] },
+    Vertex { position: [-0.5,  0.5, -0.5], color: [0.22, 0.25, 0.30] },
+    Vertex { position: [ 0.5,  0.5, -0.5], color: [0.22, 0.25, 0.30] },
+    Vertex { position: [ 0.5, -0.5, -0.5], color: [0.22, 0.25, 0.30] },
 
-    // Top face (Azul Néon Vivo)
-    Vertex { position: [-0.5,  0.5, -0.5], color: [0.2, 0.5, 1.0] },
-    Vertex { position: [-0.5,  0.5,  0.5], color: [0.2, 0.5, 1.0] },
-    Vertex { position: [ 0.5,  0.5,  0.5], color: [0.2, 0.5, 1.0] },
-    Vertex { position: [ 0.5,  0.5, -0.5], color: [0.2, 0.5, 1.0] },
+    // Top face (Ouro / Âmbar Alquímico Escuro)
+    Vertex { position: [-0.5,  0.5, -0.5], color: [0.55, 0.40, 0.18] },
+    Vertex { position: [-0.5,  0.5,  0.5], color: [0.55, 0.40, 0.18] },
+    Vertex { position: [ 0.5,  0.5,  0.5], color: [0.55, 0.40, 0.18] },
+    Vertex { position: [ 0.5,  0.5, -0.5], color: [0.55, 0.40, 0.18] },
 
-    // Bottom face (Azul Marinho)
-    Vertex { position: [-0.5, -0.5, -0.5], color: [0.05, 0.15, 0.4] },
-    Vertex { position: [ 0.5, -0.5, -0.5], color: [0.05, 0.15, 0.4] },
-    Vertex { position: [ 0.5, -0.5,  0.5], color: [0.05, 0.15, 0.4] },
-    Vertex { position: [-0.5, -0.5,  0.5], color: [0.05, 0.15, 0.4] },
+    // Bottom face (Charcoal Ardoisia)
+    Vertex { position: [-0.5, -0.5, -0.5], color: [0.15, 0.16, 0.20] },
+    Vertex { position: [ 0.5, -0.5, -0.5], color: [0.15, 0.16, 0.20] },
+    Vertex { position: [ 0.5, -0.5,  0.5], color: [0.15, 0.16, 0.20] },
+    Vertex { position: [-0.5, -0.5,  0.5], color: [0.15, 0.16, 0.20] },
 
-    // Right face (Azul Royal)
-    Vertex { position: [ 0.5, -0.5, -0.5], color: [0.15, 0.4, 0.95] },
-    Vertex { position: [ 0.5,  0.5, -0.5], color: [0.15, 0.4, 0.95] },
-    Vertex { position: [ 0.5,  0.5,  0.5], color: [0.15, 0.4, 0.95] },
-    Vertex { position: [ 0.5, -0.5,  0.5], color: [0.15, 0.4, 0.95] },
+    // Right face (Terracota Escuro)
+    Vertex { position: [ 0.5, -0.5, -0.5], color: [0.50, 0.24, 0.16] },
+    Vertex { position: [ 0.5,  0.5, -0.5], color: [0.50, 0.24, 0.16] },
+    Vertex { position: [ 0.5,  0.5,  0.5], color: [0.50, 0.24, 0.16] },
+    Vertex { position: [ 0.5, -0.5,  0.5], color: [0.50, 0.24, 0.16] },
 
-    // Left face (Azul Cobalto)
-    Vertex { position: [-0.5, -0.5, -0.5], color: [0.0, 0.35, 0.8] },
-    Vertex { position: [-0.5, -0.5,  0.5], color: [0.0, 0.35, 0.8] },
-    Vertex { position: [-0.5,  0.5,  0.5], color: [0.0, 0.35, 0.8] },
-    Vertex { position: [-0.5,  0.5, -0.5], color: [0.0, 0.35, 0.8] },
+    // Left face (Cinza Grafite)
+    Vertex { position: [-0.5, -0.5, -0.5], color: [0.20, 0.22, 0.26] },
+    Vertex { position: [-0.5, -0.5,  0.5], color: [0.20, 0.22, 0.26] },
+    Vertex { position: [-0.5,  0.5,  0.5], color: [0.20, 0.22, 0.26] },
+    Vertex { position: [-0.5,  0.5, -0.5], color: [0.20, 0.22, 0.26] },
 ];
 
 pub const INDICES: &[u16] = &[
