@@ -29,6 +29,7 @@ pub struct App {
     active_project: Option<ProjectConfig>,
     world: World,
     i18n: I18nManager,
+    widget_blueprint: crate::editor::WidgetBlueprint,
     last_frame: Instant,
 }
 
@@ -54,6 +55,7 @@ impl App {
             active_project: None,
             world: World::new_main_menu_scene(),
             i18n: I18nManager::new(),
+            widget_blueprint: crate::editor::WidgetBlueprint::load_or_default("projects/TopDownExample/Content/Actors/WBP_MainMenu.uasset"),
             last_frame: Instant::now(),
         }
     }
@@ -182,79 +184,90 @@ impl ApplicationHandler for App {
                         
                         show_content_browser_and_log(ctx, i18n, layout_settings, world, console_state);
 
-                        // ÁREA CENTRAL DE VIEWPORT DO EDITOR (CentralPanel)
-                        egui::CentralPanel::default()
-                            .frame(egui::Frame::none().fill(egui::Color32::TRANSPARENT))
-                            .show(ctx, |ui| {
-                                let rect = ui.max_rect();
+                        // VERIFICA SE A ABA ATIVA É UM WIDGET BLUEPRINT (EX: WBP_MainMenu) OU UM MAPA 3D
+                        let active_tab_title = layout_settings.open_tabs.get(layout_settings.active_tab_index).cloned().unwrap_or_default();
 
-                                // CLIQUE DIRETO NOS OBJETOS 3D DO MAPA NO VIEWPORT
-                                if ui.ui_contains_pointer() && ctx.input(|i| i.pointer.primary_clicked()) {
-                                    if let Some(pointer_pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                                        if rect.contains(pointer_pos) {
-                                            let mut closest_actor_id: Option<u64> = None;
-                                            let mut min_dist = f32::MAX;
+                        if active_tab_title.starts_with("WBP_") {
+                            egui::CentralPanel::default()
+                                .frame(egui::Frame::none().fill(egui::Color32::from_rgb(18, 20, 26)))
+                                .show(ctx, |ui| {
+                                    crate::editor::show_widget_editor(ui, &mut self.widget_blueprint, world, i18n);
+                                });
+                        } else {
+                            // ÁREA CENTRAL DE VIEWPORT 3D DO EDITOR (CentralPanel)
+                            egui::CentralPanel::default()
+                                .frame(egui::Frame::none().fill(egui::Color32::TRANSPARENT))
+                                .show(ctx, |ui| {
+                                    let rect = ui.max_rect();
 
-                                            for actor in &world.actors {
-                                                let dist = (actor.transform.position - cam_pos).length();
-                                                if dist < min_dist {
-                                                    min_dist = dist;
-                                                    closest_actor_id = Some(actor.id);
+                                    // CLIQUE DIRETO NOS OBJETOS 3D DO MAPA NO VIEWPORT
+                                    if ui.ui_contains_pointer() && ctx.input(|i| i.pointer.primary_clicked()) {
+                                        if let Some(pointer_pos) = ctx.input(|i| i.pointer.interact_pos()) {
+                                            if rect.contains(pointer_pos) {
+                                                let mut closest_actor_id: Option<u64> = None;
+                                                let mut min_dist = f32::MAX;
+
+                                                for actor in &world.actors {
+                                                    let dist = (actor.transform.position - cam_pos).length();
+                                                    if dist < min_dist {
+                                                        min_dist = dist;
+                                                        closest_actor_id = Some(actor.id);
+                                                    }
+                                                }
+
+                                                if let Some(id) = closest_actor_id {
+                                                    world.selected_actor_id = Some(id);
                                                 }
                                             }
+                                        }
+                                    }
 
-                                            if let Some(id) = closest_actor_id {
-                                                world.selected_actor_id = Some(id);
+                                    // DURAÇÃO E ROTAÇÃO DINÂMICA 3D DOS EIXOS XYZ ACOMPANHANDO A CÂMERA
+                                    let gizmo_origin = egui::pos2(rect.min.x + 50.0, rect.max.y - 50.0);
+                                    let painter = ui.painter();
+
+                                    let rot_mat = glam::Mat3::from_euler(glam::EulerRot::YXZ, -yaw - std::f32::consts::FRAC_PI_2, -pitch, 0.0);
+
+                                    let dir_x = rot_mat * glam::Vec3::X;
+                                    let dir_y = rot_mat * glam::Vec3::Y;
+                                    let dir_z = rot_mat * glam::Vec3::Z;
+
+                                    let arm_len = 32.0;
+
+                                    // Eixo X (Vermelho #EF4444)
+                                    let end_x = egui::pos2(gizmo_origin.x + dir_x.x * arm_len, gizmo_origin.y - dir_x.y * arm_len);
+                                    painter.line_segment([gizmo_origin, end_x], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(239, 68, 68)));
+                                    painter.text(end_x, egui::Align2::CENTER_CENTER, "X", egui::FontId::proportional(12.0), egui::Color32::from_rgb(239, 68, 68));
+
+                                    // Eixo Y (Verde #22C55E)
+                                    let end_y = egui::pos2(gizmo_origin.x + dir_y.x * arm_len, gizmo_origin.y - dir_y.y * arm_len);
+                                    painter.line_segment([gizmo_origin, end_y], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(34, 197, 94)));
+                                    painter.text(end_y, egui::Align2::CENTER_CENTER, "Y", egui::FontId::proportional(12.0), egui::Color32::from_rgb(34, 197, 94));
+
+                                    // Eixo Z (Azul #3B82F6)
+                                    let end_z = egui::pos2(gizmo_origin.x + dir_z.x * arm_len, gizmo_origin.y - dir_z.y * arm_len);
+                                    painter.line_segment([gizmo_origin, end_z], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(59, 130, 246)));
+                                    painter.text(end_z, egui::Align2::CENTER_CENTER, "Z", egui::FontId::proportional(12.0), egui::Color32::from_rgb(59, 130, 246));
+
+                                    // OVERLAY DO MENU INICIAL APENAS QUANDO A ABA ATIVA FOR Map_MainMenu E NÃO ESTIVER EM JOGO
+                                    if active_tab_title == "Map_MainMenu" && !world.is_playing {
+                                        match show_main_menu_widget(ui, world) {
+                                            MainMenuAction::HostSoloGame => {
+                                                log::info!("Iniciando partida solo no TopDownExample...");
+                                                world.is_playing = true;
                                             }
+                                            MainMenuAction::JoinLobby => {
+                                                log::info!("Carregando Map_Lobby...");
+                                                *world = World::new_third_person_level();
+                                            }
+                                            MainMenuAction::QuitGame => {
+                                                std::process::exit(0);
+                                            }
+                                            _ => {}
                                         }
                                     }
-                                }
-
-                                // DURAÇÃO E ROTAÇÃO DINÂMICA 3D DOS EIXOS XYZ ACOMPANHANDO A CÂMERA
-                                let gizmo_origin = egui::pos2(rect.min.x + 50.0, rect.max.y - 50.0);
-                                let painter = ui.painter();
-
-                                let rot_mat = glam::Mat3::from_euler(glam::EulerRot::YXZ, -yaw - std::f32::consts::FRAC_PI_2, -pitch, 0.0);
-
-                                let dir_x = rot_mat * glam::Vec3::X;
-                                let dir_y = rot_mat * glam::Vec3::Y;
-                                let dir_z = rot_mat * glam::Vec3::Z;
-
-                                let arm_len = 32.0;
-
-                                // Eixo X (Vermelho #EF4444)
-                                let end_x = egui::pos2(gizmo_origin.x + dir_x.x * arm_len, gizmo_origin.y - dir_x.y * arm_len);
-                                painter.line_segment([gizmo_origin, end_x], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(239, 68, 68)));
-                                painter.text(end_x, egui::Align2::CENTER_CENTER, "X", egui::FontId::proportional(12.0), egui::Color32::from_rgb(239, 68, 68));
-
-                                // Eixo Y (Verde #22C55E)
-                                let end_y = egui::pos2(gizmo_origin.x + dir_y.x * arm_len, gizmo_origin.y - dir_y.y * arm_len);
-                                painter.line_segment([gizmo_origin, end_y], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(34, 197, 94)));
-                                painter.text(end_y, egui::Align2::CENTER_CENTER, "Y", egui::FontId::proportional(12.0), egui::Color32::from_rgb(34, 197, 94));
-
-                                // Eixo Z (Azul #3B82F6)
-                                let end_z = egui::pos2(gizmo_origin.x + dir_z.x * arm_len, gizmo_origin.y - dir_z.y * arm_len);
-                                painter.line_segment([gizmo_origin, end_z], egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(59, 130, 246)));
-                                painter.text(end_z, egui::Align2::CENTER_CENTER, "Z", egui::FontId::proportional(12.0), egui::Color32::from_rgb(59, 130, 246));
-
-                                // WIDGET OVERLAY DO MENU INICIAL SE NÃO ESTIVER EM JOGO
-                                if !world.is_playing {
-                                    match show_main_menu_widget(ui, world) {
-                                        MainMenuAction::HostSoloGame => {
-                                            log::info!("Iniciando partida solo no TopDownExample...");
-                                            world.is_playing = true;
-                                        }
-                                        MainMenuAction::JoinLobby => {
-                                            log::info!("Carregando Map_Lobby...");
-                                            *world = World::new_third_person_level();
-                                        }
-                                        MainMenuAction::QuitGame => {
-                                            std::process::exit(0);
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            });
+                                });
+                        }
                     }
                 });
 

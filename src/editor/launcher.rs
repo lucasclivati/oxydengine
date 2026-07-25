@@ -307,11 +307,11 @@ pub fn show_launcher_gui(
 
                     ui.add_space(8.0);
 
-                    ui.label(RichText::new("Choose Starting Level Template:").color(Color32::from_rgb(230, 235, 245)).strong());
+                    ui.label(RichText::new(&tr.choose_level_template).color(Color32::from_rgb(230, 235, 245)).strong());
                     ui.horizontal(|ui| {
-                        ui.selectable_value(&mut state.selected_template, LevelTemplate::Blank, "✨ Blank Level");
-                        ui.selectable_value(&mut state.selected_template, LevelTemplate::ThirdPerson, "🏃 Third Person");
-                        ui.selectable_value(&mut state.selected_template, LevelTemplate::FirstPerson, "🎯 First Person");
+                        ui.selectable_value(&mut state.selected_template, LevelTemplate::Blank, format!("✨ {}", tr.blank_level_template));
+                        ui.selectable_value(&mut state.selected_template, LevelTemplate::ThirdPerson, format!("🏃 {}", tr.third_person_template));
+                        ui.selectable_value(&mut state.selected_template, LevelTemplate::FirstPerson, format!("🎯 {}", tr.first_person_template));
                     });
 
                     ui.add_space(10.0);

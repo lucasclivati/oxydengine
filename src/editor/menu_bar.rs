@@ -348,18 +348,42 @@ pub fn show_top_bars(
 
                 ui.separator();
 
-                // Quick Add em Amarelo Ouro (#F59E0B)
+                // Quick Add (Espelho direto da estrutura de pastas do Content Drawer)
                 ui.menu_button(RichText::new("📦+ ⏷").color(Color32::from_rgb(245, 158, 11)).strong(), |ui| {
-                    ui.heading("Primitives");
-                    if ui.button(format!("📦 Cube")).clicked() {
+                    ui.heading("📁 Maps (Content/Maps/)");
+                    if ui.button("🗺️ Create New Level Map (Map_NewMap)").clicked() {
+                        let maps_dir = std::path::Path::new("projects/TopDownExample/Content/Maps");
+                        let _ = std::fs::create_dir_all(maps_dir);
+                        let map_path = maps_dir.join("Map_NewMap.oxydlevel");
+                        let dummy_map = r#"{"actors":[]}"#;
+                        let _ = std::fs::write(&map_path, dummy_map);
+
+                        layout.open_tabs.push("Map_NewMap".to_string());
+                        layout.active_tab_index = layout.open_tabs.len() - 1;
+                        layout.save();
+                        ui.close_menu();
+                    }
+
+                    ui.separator();
+                    ui.heading("📁 Actors (Content/Actors/)");
+                    if ui.button("🏃 BP_DoctorCharacter").clicked() {
+                        let _ = std::fs::create_dir_all("projects/TopDownExample/Content/Actors");
+                        let _ = std::fs::write("projects/TopDownExample/Content/Actors/BP_DoctorCharacter.uasset", b"BP_DoctorCharacter_Data");
+
+                        let id = world.next_actor_id;
+                        world.next_actor_id += 1;
+                        world.actors.push(crate::scene::Actor::new_doctor_character(id, "BP_DoctorCharacter", Vec3::new(0.0, 1.0, 0.0)));
+                        ui.close_menu();
+                    }
+                    if ui.button("📦 Cube Actor").clicked() {
                         world.add_actor("New_Cube", PrimitiveType::Cube, Vec3::ZERO, [0.8, 0.4, 0.2, 1.0]);
                         ui.close_menu();
                     }
-                    if ui.button(format!("🔮 Sphere")).clicked() {
+                    if ui.button("🔮 Sphere Actor").clicked() {
                         world.add_actor("New_Sphere", PrimitiveType::Sphere, Vec3::ZERO, [0.9, 0.3, 0.3, 1.0]);
                         ui.close_menu();
                     }
-                    if ui.button(format!("💡 Point Light")).clicked() {
+                    if ui.button("💡 Point Light").clicked() {
                         world.add_actor("Point_Light", PrimitiveType::PointLight, Vec3::new(0.0, 3.0, 0.0), [1.0, 0.9, 0.6, 1.0]);
                         ui.close_menu();
                     }
@@ -367,24 +391,18 @@ pub fn show_top_bars(
                         world.add_actor("Camera_Actor", PrimitiveType::CameraActor, Vec3::new(0.0, 2.0, 5.0), [0.4, 0.6, 1.0, 1.0]);
                         ui.close_menu();
                     }
+
                     ui.separator();
-                    ui.heading("Characters & Blueprints");
-                    if ui.button("🏃 BP_DoctorCharacter").clicked() {
+                    ui.heading("📁 VFX & Atmosphere (Content/VFX/)");
+                    if ui.button("🌅 Sky Atmosphere").clicked() {
+                        let _ = std::fs::create_dir_all("projects/TopDownExample/Content/VFX");
+                        let _ = std::fs::write("projects/TopDownExample/Content/VFX/SkyAtmosphere.uasset", b"SkyAtmosphere_Data");
+
                         let id = world.next_actor_id;
                         world.next_actor_id += 1;
-                        world.actors.push(crate::scene::Actor::new_doctor_character(id, "BP_DoctorCharacter", Vec3::new(0.0, 1.0, 0.0)));
+                        world.actors.push(crate::scene::Actor::new_sky_atmosphere(id, "SkyAtmosphere", Vec3::ZERO));
                         ui.close_menu();
                     }
-                    ui.separator();
-                    ui.heading("Decals & Visuals");
-                    if ui.button("🎯 Decal Actor (Projector)").clicked() {
-                        let id = world.next_actor_id;
-                        world.next_actor_id += 1;
-                        world.actors.push(crate::scene::Actor::new_decal(id, "Decal_Projector", Vec3::new(0.0, 0.1, 0.0)));
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    ui.heading("Atmosphere & Lights");
                     if ui.button("☀ Directional Light").clicked() {
                         let id = world.next_actor_id;
                         world.next_actor_id += 1;
@@ -397,16 +415,22 @@ pub fn show_top_bars(
                         world.actors.push(crate::scene::Actor::new_fog(id, "ExponentialHeightFog", Vec3::ZERO));
                         ui.close_menu();
                     }
-                    if ui.button("🌅 Sky Atmosphere").clicked() {
-                        let id = world.next_actor_id;
-                        world.next_actor_id += 1;
-                        world.actors.push(crate::scene::Actor::new_sky_atmosphere(id, "SkyAtmosphere", Vec3::ZERO));
-                        ui.close_menu();
-                    }
                     if ui.button("☁ Volumetric Cloud").clicked() {
                         let id = world.next_actor_id;
                         world.next_actor_id += 1;
                         world.actors.push(crate::scene::Actor::new_volumetric_cloud(id, "VolumetricCloud", Vec3::ZERO));
+                        ui.close_menu();
+                    }
+
+                    ui.separator();
+                    ui.heading("📁 Decals (Content/Decals/)");
+                    if ui.button("🎯 Decal Actor (Projector)").clicked() {
+                        let _ = std::fs::create_dir_all("projects/TopDownExample/Content/Decals");
+                        let _ = std::fs::write("projects/TopDownExample/Content/Decals/Decal_Projector.uasset", b"Decal_Projector_Data");
+
+                        let id = world.next_actor_id;
+                        world.next_actor_id += 1;
+                        world.actors.push(crate::scene::Actor::new_decal(id, "Decal_Projector", Vec3::new(0.0, 0.1, 0.0)));
                         ui.close_menu();
                     }
                 });

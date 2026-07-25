@@ -7,6 +7,7 @@ pub mod details;
 pub mod content_browser;
 pub mod main_menu_widget;
 pub mod accounts;
+pub mod widget_editor;
 
 pub use i18n::*;
 pub use layout_settings::*;
@@ -17,3 +18,4 @@ pub use details::*;
 pub use content_browser::*;
 pub use main_menu_widget::*;
 pub use accounts::*;
+pub use widget_editor::*;

@@ -1,4 +1,4 @@
-use egui::{Color32, Visuals, Rounding, Stroke, Shadow, Vec2, RichText, Margin, Frame};
+use egui::{Color32, Visuals, Rounding, Stroke, Shadow, Vec2, RichText, Margin, Frame, Pos2, Rect};
 use egui::style::{Widgets, WidgetVisuals, Selection, Spacing};
 use serde::{Serialize, Deserialize};
 use crate::editor::I18nManager;
@@ -24,7 +24,7 @@ fn default_highlight_text() -> [u8; 4] {
 
 impl Default for CustomTheme {
     fn default() -> Self {
-        Self::oxyd_gold()
+        Self::warm_amber()
     }
 }
 
@@ -169,6 +169,26 @@ pub fn apply_custom_theme(ctx: &egui::Context, theme: &CustomTheme) {
             .unwrap()
             .insert(0, "Inter-Regular".to_string());
     }
+
+    // REGISTRO DE FONTES INTERNACIONAIS DE FALLBACK (CJK CHINÊS, JAPONÊS, COREANO, CIRÍLICO, ÁRABE, HINDI, EMOJIS)
+    let system_fallback_fonts = [
+        ("C:\\Windows\\Fonts\\msyh.ttc", "MSYaHei"),       // Chinês Simplificado / Mandarim
+        ("C:\\Windows\\Fonts\\simsun.ttc", "SimSun"),        // Chinês
+        ("C:\\Windows\\Fonts\\msgothic.ttc", "MSGothic"),   // Japonês
+        ("C:\\Windows\\Fonts\\malgun.ttf", "MalgunGothic"), // Coreano
+        ("C:\\Windows\\Fonts\\Nirmala.ttf", "NirmalaUI"),   // Hindi / Devanagari
+        ("C:\\Windows\\Fonts\\arial.ttf", "ArialSystem"),   // Cirílico / Árabe / Hebraico
+        ("C:\\Windows\\Fonts\\seguiemj.ttf", "SegoeEmoji"), // Emojis
+    ];
+
+    for (f_path, f_name) in system_fallback_fonts {
+        if let Ok(data) = std::fs::read(f_path) {
+            font_defs.font_data.insert(f_name.to_string(), egui::FontData::from_owned(data));
+            font_defs.families.get_mut(&egui::FontFamily::Proportional).unwrap().push(f_name.to_string());
+            font_defs.families.get_mut(&egui::FontFamily::Monospace).unwrap().push(f_name.to_string());
+        }
+    }
+
     ctx.set_fonts(font_defs);
 
     let accent = Color32::from_rgba_unmultiplied(theme.accent_color[0], theme.accent_color[1], theme.accent_color[2], theme.accent_color[3]);
@@ -264,13 +284,24 @@ pub enum ColorPickerTab {
     ColorSwatches,
 }
 
-// ESTADO DO SELETOR DE CORES POPUP ESTILO ILLUSTRATOR
+// ESTADO COMPLETO DO SELETOR DE CORES POPUP - CLONE 100% EXATO AO ADOBE ILLUSTRATOR
 #[derive(Debug, Clone)]
 pub struct ColorPickerPopupState {
     pub active_prop: Option<String>,
     pub original_color: [u8; 4],
     pub temp_color: [u8; 4],
+    pub r_input: String,
+    pub g_input: String,
+    pub b_input: String,
+    pub h_input: String,
+    pub s_input: String,
+    pub v_input: String,
     pub hex_input: String,
+    pub c_input: String,
+    pub m_input: String,
+    pub y_input: String,
+    pub k_input: String,
+    pub selected_radio: String, // "H", "S", "B_val", "R", "G", "B"
     pub active_tab: ColorPickerTab,
 }
 
@@ -280,7 +311,18 @@ impl Default for ColorPickerPopupState {
             active_prop: None,
             original_color: [0, 0, 0, 255],
             temp_color: [0, 0, 0, 255],
-            hex_input: String::new(),
+            r_input: "0".to_string(),
+            g_input: "0".to_string(),
+            b_input: "0".to_string(),
+            h_input: "0".to_string(),
+            s_input: "0".to_string(),
+            v_input: "0".to_string(),
+            hex_input: "000000".to_string(),
+            c_input: "0".to_string(),
+            m_input: "0".to_string(),
+            y_input: "0".to_string(),
+            k_input: "100".to_string(),
+            selected_radio: "H".to_string(),
             active_tab: ColorPickerTab::ColorModels,
         }
     }
@@ -311,6 +353,31 @@ pub fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (u16, u8, u8) {
     (h.round() as u16, (s * 100.0).round() as u8, (v * 100.0).round() as u8)
 }
 
+pub fn hsv_to_rgb(h: u16, s: u8, v: u8) -> [u8; 3] {
+    let h_f = (h % 360) as f32;
+    let s_f = s as f32 / 100.0;
+    let v_f = v as f32 / 100.0;
+
+    let c = v_f * s_f;
+    let x = c * (1.0 - ((h_f / 60.0) % 2.0 - 1.0).abs());
+    let m = v_f - c;
+
+    let (r_f, g_f, b_f) = match (h_f / 60.0) as u8 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+
+    [
+        ((r_f + m) * 255.0).round().clamp(0.0, 255.0) as u8,
+        ((g_f + m) * 255.0).round().clamp(0.0, 255.0) as u8,
+        ((b_f + m) * 255.0).round().clamp(0.0, 255.0) as u8,
+    ]
+}
+
 pub fn rgb_to_cmyk(r: u8, g: u8, b: u8) -> (u8, u8, u8, u8) {
     let rf = r as f32 / 255.0;
     let gf = g as f32 / 255.0;
@@ -326,6 +393,23 @@ pub fn rgb_to_cmyk(r: u8, g: u8, b: u8) -> (u8, u8, u8, u8) {
     (c, m, y, k)
 }
 
+pub fn cmyk_to_rgb(c: u8, m: u8, y: u8, k: u8) -> [u8; 3] {
+    let c_f = c as f32 / 100.0;
+    let m_f = m as f32 / 100.0;
+    let y_f = y as f32 / 100.0;
+    let k_f = k as f32 / 100.0;
+
+    let r = 255.0 * (1.0 - c_f) * (1.0 - k_f);
+    let g = 255.0 * (1.0 - m_f) * (1.0 - k_f);
+    let b = 255.0 * (1.0 - y_f) * (1.0 - k_f);
+
+    [
+        r.round().clamp(0.0, 255.0) as u8,
+        g.round().clamp(0.0, 255.0) as u8,
+        b.round().clamp(0.0, 255.0) as u8,
+    ]
+}
+
 pub fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
     let clean = hex.trim().trim_start_matches('#');
     if clean.len() == 6 {
@@ -336,6 +420,28 @@ pub fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
     } else {
         None
     }
+}
+
+pub fn sync_color_picker_inputs(state: &mut ColorPickerPopupState, rgba: [u8; 4]) {
+    state.temp_color = rgba;
+    let (r, g, b) = (rgba[0], rgba[1], rgba[2]);
+    let (h, s, v) = rgb_to_hsv(r, g, b);
+    let (c, m, y, k) = rgb_to_cmyk(r, g, b);
+
+    state.r_input = format!("{}", r);
+    state.g_input = format!("{}", g);
+    state.b_input = format!("{}", b);
+
+    state.h_input = format!("{}", h);
+    state.s_input = format!("{}", s);
+    state.v_input = format!("{}", v);
+
+    state.c_input = format!("{}", c);
+    state.m_input = format!("{}", m);
+    state.y_input = format!("{}", y);
+    state.k_input = format!("{}", k);
+
+    state.hex_input = format!("{:02X}{:02X}{:02X}", r, g, b);
 }
 
 // JANELA INTERATIVA DE PERSONALIZAÇÃO COMPLETA DO TEMA E CORES
@@ -382,7 +488,7 @@ pub fn show_theme_manager_window(
         current_theme.text_light[3],
     );
 
-    // O título da janela quando o header está em Destaque/Amarelo segue HIGHLIGHT TEXT COLOR
+    // Título da janela principal em HIGHLIGHT TEXT COLOR para alto contraste no header selecionado
     egui::Window::new(RichText::new(&tr.theme_customizer_title).color(highlight_text_color).strong())
         .open(open)
         .resizable(true)
@@ -480,8 +586,7 @@ pub fn show_theme_manager_window(
                             if response.clicked() {
                                 picker_state.active_prop = Some(prop_id.to_string());
                                 picker_state.original_color = current_rgba;
-                                picker_state.temp_color = current_rgba;
-                                picker_state.hex_input = format!("{:02X}{:02X}{:02X}", current_rgba[0], current_rgba[1], current_rgba[2]);
+                                sync_color_picker_inputs(picker_state, current_rgba);
                             }
 
                             ui.end_row();
@@ -522,79 +627,272 @@ pub fn show_theme_manager_window(
             });
         });
 
-    // POPUP DEDICADO DO SELETOR DE CORES ESTILO ADOBE ILLUSTRATOR
+    // POPUP DEDICADO DO SELETOR DE CORES - CLONE 100% FIEL E IDÊNTICO AO ADOBE ILLUSTRATOR (IMAGENS 1 A 5)
     if let Some(active_prop) = picker_state.active_prop.clone() {
         let mut is_open = true;
         let mut close_picker = false;
 
-        egui::Window::new("🎨 Color Picker")
+        // Estilo escuro idêntico ao Photoshop / Illustrator (#383838)
+        let ill_frame = Frame::none()
+            .fill(Color32::from_rgb(56, 56, 56))
+            .rounding(Rounding::same(4.0))
+            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(20, 20, 20)))
+            .inner_margin(Margin::same(12.0));
+
+        egui::Window::new("Color Picker")
             .open(&mut is_open)
             .collapsible(false)
             .resizable(false)
             .pivot(egui::Align2::CENTER_CENTER)
             .default_pos(ctx.screen_rect().center())
-            .default_width(580.0)
+            .frame(ill_frame)
             .show(ctx, |ui| {
-                ui.add_space(6.0);
-                ui.label(RichText::new("Select Color:").strong());
-                ui.add_space(6.0);
+                ui.label(RichText::new("Select Color:").color(Color32::from_rgb(220, 220, 220)).strong());
+                ui.add_space(8.0);
 
                 ui.horizontal(|ui| {
-                    // ÁREA DA ESQUERDA: ÁREA EXPANDIDA E MAIOR DO COLOR PICKER DE ALTA RESOLUÇÃO
-                    ui.vertical(|ui| {
-                        let mut c32 = Color32::from_rgba_unmultiplied(
-                            picker_state.temp_color[0],
-                            picker_state.temp_color[1],
-                            picker_state.temp_color[2],
-                            picker_state.temp_color[3],
-                        );
+                    let (r, g, b) = (picker_state.temp_color[0], picker_state.temp_color[1], picker_state.temp_color[2]);
+                    let (h, current_s, current_v) = rgb_to_hsv(r, g, b);
+                    let mode_str = picker_state.selected_radio.clone();
 
-                        if egui::color_picker::color_picker_color32(ui, &mut c32, egui::color_picker::Alpha::Opaque) {
-                            picker_state.temp_color = [c32.r(), c32.g(), c32.b(), c32.a()];
-                            picker_state.hex_input = format!("{:02X}{:02X}{:02X}", c32.r(), c32.g(), c32.b());
-                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
-                            theme_changed = true;
-                        }
+                    // 1. ÁREA DA ESQUERDA: QUADRADO DE ESPECTRO 2D (250x250px) DINÂMICO + SLIDER VERTICAL
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            // QUADRADO DE ESPECTRO 2D (250x250px)
+                            let (rect_2d, resp_2d) = ui.allocate_exact_size(Vec2::new(250.0, 250.0), egui::Sense::click_and_drag());
+
+                            // RENDERIZAÇÃO EM GRID DA MATRIZ 2D DE CORES DO ILLUSTRATOR COM BASE NO MODO SELECIONADO (H, S, B, R, G, B)
+                            let steps = 100;
+                            let cell_w = 250.0 / steps as f32;
+                            let cell_h = 250.0 / steps as f32;
+
+                            for y_i in 0..steps {
+                                let norm_y = y_i as f32 / steps as f32;
+                                let y_val_inv = 1.0 - norm_y;
+                                for x_i in 0..steps {
+                                    let norm_x = x_i as f32 / steps as f32;
+
+                                    let cell_rgb = match mode_str.as_str() {
+                                        "H" => {
+                                            // X = Saturation (0..100%), Y = Brightness (100..0%)
+                                            hsv_to_rgb(h, (norm_x * 100.0) as u8, (y_val_inv * 100.0) as u8)
+                                        }
+                                        "S" => {
+                                            // X = Hue (0..360°), Y = Brightness (100..0%)
+                                            hsv_to_rgb((norm_x * 360.0) as u16, current_s, (y_val_inv * 100.0) as u8)
+                                        }
+                                        "B_val" => {
+                                            // X = Hue (0..360°), Y = Saturation (100..0%)
+                                            hsv_to_rgb((norm_x * 360.0) as u16, (y_val_inv * 100.0) as u8, current_v)
+                                        }
+                                        "R" => {
+                                            // X = Blue (0..255), Y = Green (255..0)
+                                            [r, (y_val_inv * 255.0) as u8, (norm_x * 255.0) as u8]
+                                        }
+                                        "G" => {
+                                            // X = Blue (0..255), Y = Red (255..0)
+                                            [(y_val_inv * 255.0) as u8, g, (norm_x * 255.0) as u8]
+                                        }
+                                        "B" => {
+                                            // X = Red (0..255), Y = Green (255..0)
+                                            [(norm_x * 255.0) as u8, (y_val_inv * 255.0) as u8, b]
+                                        }
+                                        _ => hsv_to_rgb(h, (norm_x * 100.0) as u8, (y_val_inv * 100.0) as u8),
+                                    };
+
+                                    let cell_rect = Rect::from_min_size(
+                                        Pos2::new(rect_2d.min.x + x_i as f32 * cell_w, rect_2d.min.y + y_i as f32 * cell_h),
+                                        Vec2::new(cell_w + 0.5, cell_h + 0.5),
+                                    );
+                                    ui.painter().rect_filled(cell_rect, Rounding::ZERO, Color32::from_rgb(cell_rgb[0], cell_rgb[1], cell_rgb[2]));
+                                }
+                            }
+
+                            // POSIÇÃO E DESENHO DO CURSOR CIRCULAR `○` DO SELETOR 2D DO ILLUSTRATOR
+                            let (point_x, point_y) = match mode_str.as_str() {
+                                "H" => (
+                                    rect_2d.min.x + (current_s as f32 / 100.0) * rect_2d.width(),
+                                    rect_2d.min.y + (1.0 - (current_v as f32 / 100.0)) * rect_2d.height(),
+                                ),
+                                "S" => (
+                                    rect_2d.min.x + (h as f32 / 360.0) * rect_2d.width(),
+                                    rect_2d.min.y + (1.0 - (current_v as f32 / 100.0)) * rect_2d.height(),
+                                ),
+                                "B_val" => (
+                                    rect_2d.min.x + (h as f32 / 360.0) * rect_2d.width(),
+                                    rect_2d.min.y + (1.0 - (current_s as f32 / 100.0)) * rect_2d.height(),
+                                ),
+                                "R" => (
+                                    rect_2d.min.x + (b as f32 / 255.0) * rect_2d.width(),
+                                    rect_2d.min.y + (1.0 - (g as f32 / 255.0)) * rect_2d.height(),
+                                ),
+                                "G" => (
+                                    rect_2d.min.x + (b as f32 / 255.0) * rect_2d.width(),
+                                    rect_2d.min.y + (1.0 - (r as f32 / 255.0)) * rect_2d.height(),
+                                ),
+                                "B" => (
+                                    rect_2d.min.x + (r as f32 / 255.0) * rect_2d.width(),
+                                    rect_2d.min.y + (1.0 - (g as f32 / 255.0)) * rect_2d.height(),
+                                ),
+                                _ => (rect_2d.center().x, rect_2d.center().y),
+                            };
+
+                            if resp_2d.dragged() || resp_2d.clicked() {
+                                if let Some(pos) = resp_2d.interact_pointer_pos() {
+                                    let rel_x = ((pos.x - rect_2d.min.x) / rect_2d.width()).clamp(0.0, 1.0);
+                                    let rel_y = ((pos.y - rect_2d.min.y) / rect_2d.height()).clamp(0.0, 1.0);
+                                    let inv_y = 1.0 - rel_y;
+
+                                    let new_rgb = match mode_str.as_str() {
+                                        "H" => hsv_to_rgb(h, (rel_x * 100.0) as u8, (inv_y * 100.0) as u8),
+                                        "S" => hsv_to_rgb((rel_x * 360.0) as u16, current_s, (inv_y * 100.0) as u8),
+                                        "B_val" => hsv_to_rgb((rel_x * 360.0) as u16, (inv_y * 100.0) as u8, current_v),
+                                        "R" => [r, (inv_y * 255.0) as u8, (rel_x * 255.0) as u8],
+                                        "G" => [(inv_y * 255.0) as u8, g, (rel_x * 255.0) as u8],
+                                        "B" => [(rel_x * 255.0) as u8, (inv_y * 255.0) as u8, b],
+                                        _ => hsv_to_rgb(h, (rel_x * 100.0) as u8, (inv_y * 100.0) as u8),
+                                    };
+
+                                    sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                    update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                    theme_changed = true;
+                                }
+                            }
+
+                            // BORDA 1PX PRETA E CURSOR CIRCULAR `○`
+                            ui.painter().rect_stroke(rect_2d, Rounding::ZERO, Stroke::new(1.0_f32, Color32::BLACK));
+                            ui.painter().circle_stroke(Pos2::new(point_x, point_y), 5.0, Stroke::new(1.5_f32, Color32::BLACK));
+                            ui.painter().circle_stroke(Pos2::new(point_x, point_y), 4.0, Stroke::new(1.5_f32, Color32::WHITE));
+
+                            ui.add_space(8.0);
+
+                            // SLIDER VERTICAL BARRA (20x250px) DINÂMICO CONFORME O MODO (H, S, B, R, G, B)
+                            let (rect_hue, resp_hue) = ui.allocate_exact_size(Vec2::new(20.0, 250.0), egui::Sense::click_and_drag());
+
+                            for y_i in 0..250 {
+                                let norm_y = 1.0 - (y_i as f32 / 250.0);
+                                let line_rgb = match mode_str.as_str() {
+                                    "H" => hsv_to_rgb((norm_y * 360.0) as u16, 100, 100),
+                                    "S" => hsv_to_rgb(h, (norm_y * 100.0) as u8, current_v),
+                                    "B_val" => hsv_to_rgb(h, current_s, (norm_y * 100.0) as u8),
+                                    "R" => [(norm_y * 255.0) as u8, g, b],
+                                    "G" => [r, (norm_y * 255.0) as u8, b],
+                                    "B" => [r, g, (norm_y * 255.0) as u8],
+                                    _ => hsv_to_rgb((norm_y * 360.0) as u16, 100, 100),
+                                };
+
+                                let line_rect = Rect::from_min_size(Pos2::new(rect_hue.min.x, rect_hue.min.y + y_i as f32), Vec2::new(20.0, 1.0));
+                                ui.painter().rect_filled(line_rect, Rounding::ZERO, Color32::from_rgb(line_rgb[0], line_rgb[1], line_rgb[2]));
+                            }
+                            ui.painter().rect_stroke(rect_hue, Rounding::ZERO, Stroke::new(1.0_f32, Color32::BLACK));
+
+                            // EVENTO DE CLIQUE / ARRASTE NO SLIDER VERTICAL
+                            if resp_hue.dragged() || resp_hue.clicked() {
+                                if let Some(pos) = resp_hue.interact_pointer_pos() {
+                                    let rel_y = ((pos.y - rect_hue.min.y) / rect_hue.height()).clamp(0.0, 1.0);
+                                    let inv_y = 1.0 - rel_y;
+
+                                    let new_rgb = match mode_str.as_str() {
+                                        "H" => hsv_to_rgb((inv_y * 360.0) as u16, current_s, current_v),
+                                        "S" => hsv_to_rgb(h, (inv_y * 100.0) as u8, current_v),
+                                        "B_val" => hsv_to_rgb(h, current_s, (inv_y * 100.0) as u8),
+                                        "R" => [(inv_y * 255.0) as u8, g, b],
+                                        "G" => [r, (inv_y * 255.0) as u8, b],
+                                        "B" => [r, g, (inv_y * 255.0) as u8],
+                                        _ => hsv_to_rgb((inv_y * 360.0) as u16, current_s, current_v),
+                                    };
+
+                                    sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                    update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                    theme_changed = true;
+                                }
+                            }
+
+                            // RENDERIZAÇÃO GEOMÉTRICA PERFEITA DAS SETAS ◀ ▶ DO SLIDER (SEM QUADRADOS ☒ OU ERROS DE FONTE)
+                            let slider_ratio = match mode_str.as_str() {
+                                "H" => 1.0 - (h as f32 / 360.0),
+                                "S" => 1.0 - (current_s as f32 / 100.0),
+                                "B_val" => 1.0 - (current_v as f32 / 100.0),
+                                "R" => 1.0 - (r as f32 / 255.0),
+                                "G" => 1.0 - (g as f32 / 255.0),
+                                "B" => 1.0 - (b as f32 / 255.0),
+                                _ => 1.0 - (h as f32 / 360.0),
+                            };
+
+                            let arrow_y = rect_hue.min.y + slider_ratio.clamp(0.0, 1.0) * rect_hue.height();
+
+                            // Seta Esquerda apontando para a direita ▶
+                            let left_arrow_poly = vec![
+                                Pos2::new(rect_hue.min.x - 7.0, arrow_y - 5.0),
+                                Pos2::new(rect_hue.min.x - 1.0, arrow_y),
+                                Pos2::new(rect_hue.min.x - 7.0, arrow_y + 5.0),
+                            ];
+                            ui.painter().add(egui::Shape::convex_polygon(left_arrow_poly, Color32::from_rgb(220, 220, 220), Stroke::new(1.0_f32, Color32::BLACK)));
+
+                            // Seta Direita apontando para a esquerda ◀
+                            let right_arrow_poly = vec![
+                                Pos2::new(rect_hue.max.x + 7.0, arrow_y - 5.0),
+                                Pos2::new(rect_hue.max.x + 1.0, arrow_y),
+                                Pos2::new(rect_hue.max.x + 7.0, arrow_y + 5.0),
+                            ];
+                            ui.painter().add(egui::Shape::convex_polygon(right_arrow_poly, Color32::from_rgb(220, 220, 220), Stroke::new(1.0_f32, Color32::BLACK)));
+                        });
                     });
 
                     ui.add_space(16.0);
 
-                    // ÁREA DA DIREITA: PAINEL ESTILO ADOBE ILLUSTRATOR COM ANTES/DEPOIS + FORMATOS (RGB, HSB, CMYK, HEX) + BOTÕES OK/CANCEL/SWATCHES
+                    // 2. COLUNA DIREITA: BLINDAGEM ANTES/DEPOIS + PAINEL DE BOTÕES + CAMPOS EDITÁVEIS RECALCULADOS (H, S, B, R, G, B, CMYK, HEX)
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
-                            // BLINDAGEM VISUAL: CAIXA ANTES E DEPOIS (NOVO x ANTERIOR)
+                            // CAIXA DE PREVIA ANTES / DEPOIS (NOVO x ANTERIOR DO ILLUSTRATOR)
                             let new_c32 = Color32::from_rgba_unmultiplied(picker_state.temp_color[0], picker_state.temp_color[1], picker_state.temp_color[2], picker_state.temp_color[3]);
                             let old_c32 = Color32::from_rgba_unmultiplied(picker_state.original_color[0], picker_state.original_color[1], picker_state.original_color[2], picker_state.original_color[3]);
 
-                            Frame::none()
-                                .stroke(Stroke::new(1.0_f32, Color32::BLACK))
-                                .show(ui, |ui| {
-                                    ui.set_min_size(Vec2::new(64.0, 64.0));
-                                    let (r_new, _) = ui.allocate_exact_size(Vec2::new(64.0, 32.0), egui::Sense::hover());
-                                    ui.painter().rect_filled(r_new, Rounding::same(0.0), new_c32);
+                            let (prev_rect, _) = ui.allocate_exact_size(Vec2::new(54.0, 70.0), egui::Sense::hover());
+                            let top_half = Rect::from_min_size(prev_rect.min, Vec2::new(54.0, 35.0));
+                            let bot_half = Rect::from_min_size(Pos2::new(prev_rect.min.x, prev_rect.min.y + 35.0), Vec2::new(54.0, 35.0));
 
-                                    let (r_old, _) = ui.allocate_exact_size(Vec2::new(64.0, 32.0), egui::Sense::hover());
-                                    ui.painter().rect_filled(r_old, Rounding::same(0.0), old_c32);
-                                });
+                            ui.painter().rect_filled(top_half, Rounding::ZERO, new_c32);
+                            ui.painter().rect_filled(bot_half, Rounding::ZERO, old_c32);
+                            ui.painter().rect_stroke(prev_rect, Rounding::ZERO, Stroke::new(1.0_f32, Color32::BLACK));
 
-                            ui.add_space(12.0);
+                            ui.add_space(16.0);
 
-                            // BOTÕES OK / CANCEL / COLOR SWATCHES NA COLUNA LATERAL
+                            // BOTÕES PILL DO ADOBE ILLUSTRATOR: [ OK ], [ Cancel ], [ Color Swatches ]
                             ui.vertical(|ui| {
-                                if ui.add_sized(Vec2::new(110.0, 26.0), egui::Button::new(RichText::new("OK").strong())).clicked() {
+                                let pill_style = egui::Button::new(RichText::new("OK").color(Color32::WHITE).strong())
+                                    .rounding(Rounding::same(12.0))
+                                    .stroke(Stroke::new(1.0_f32, Color32::WHITE))
+                                    .fill(Color32::from_rgb(50, 50, 50));
+
+                                if ui.add_sized(Vec2::new(115.0, 26.0), pill_style).clicked() {
                                     update_theme_property(current_theme, &active_prop, picker_state.temp_color);
                                     theme_changed = true;
                                     close_picker = true;
                                 }
+
                                 ui.add_space(4.0);
-                                if ui.add_sized(Vec2::new(110.0, 26.0), egui::Button::new(RichText::new("Cancel").strong())).clicked() {
+
+                                let cancel_pill = egui::Button::new(RichText::new("Cancel").color(Color32::WHITE).strong())
+                                    .rounding(Rounding::same(12.0))
+                                    .stroke(Stroke::new(1.0_f32, Color32::WHITE))
+                                    .fill(Color32::from_rgb(50, 50, 50));
+
+                                if ui.add_sized(Vec2::new(115.0, 26.0), cancel_pill).clicked() {
                                     update_theme_property(current_theme, &active_prop, picker_state.original_color);
                                     theme_changed = true;
                                     close_picker = true;
                                 }
+
                                 ui.add_space(4.0);
-                                let btn_label = if picker_state.active_tab == ColorPickerTab::ColorModels { "Color Swatches" } else { "Color Models" };
-                                if ui.add_sized(Vec2::new(110.0, 26.0), egui::Button::new(RichText::new(btn_label).strong())).clicked() {
+
+                                let tab_name = if picker_state.active_tab == ColorPickerTab::ColorModels { "Color Swatches" } else { "Color Models" };
+                                let swatches_pill = egui::Button::new(RichText::new(tab_name).color(Color32::WHITE).strong())
+                                    .rounding(Rounding::same(12.0))
+                                    .stroke(Stroke::new(1.0_f32, Color32::WHITE))
+                                    .fill(Color32::from_rgb(50, 50, 50));
+
+                                if ui.add_sized(Vec2::new(115.0, 26.0), swatches_pill).clicked() {
                                     picker_state.active_tab = if picker_state.active_tab == ColorPickerTab::ColorModels {
                                         ColorPickerTab::ColorSwatches
                                     } else {
@@ -605,53 +903,153 @@ pub fn show_theme_manager_window(
                         });
 
                         ui.add_space(10.0);
-                        ui.separator();
-                        ui.add_space(6.0);
 
                         if picker_state.active_tab == ColorPickerTab::ColorModels {
-                            // ABA 1: MODELOS DE CORES HSB, RGB, CMYK E INPUT HEX #BC8E1D
-                            let (r, g, b) = (picker_state.temp_color[0], picker_state.temp_color[1], picker_state.temp_color[2]);
-                            let (h, s, v) = rgb_to_hsv(r, g, b);
-                            let (c, m, y, k) = rgb_to_cmyk(r, g, b);
-
-                            egui::Grid::new("illustrator_color_inputs_grid")
+                            // CAMPOS EDITÁVEIS COM RECÁLCULO AUTOMÁTICO EM TEMPO REAL DE TODOS OS CAMPOS DO ILLUSTRATOR
+                            egui::Grid::new("illustrator_inputs_grid")
                                 .num_columns(4)
-                                .spacing([10.0, 6.0])
+                                .spacing([8.0, 6.0])
                                 .show(ui, |ui| {
-                                    // HSB / HSV
-                                    ui.label("H:");
-                                    ui.label(format!("{}°", h));
-                                    ui.label("C:");
-                                    ui.label(format!("{}%", c));
+                                    // 1. HSB: Hue H:
+                                    ui.horizontal(|ui| {
+                                        if ui.radio_value(&mut picker_state.selected_radio, "H".to_string(), "").clicked() {
+                                            // Ao clicar no radio button, seleciona o modo sem alterar a cor
+                                        }
+                                        ui.label(RichText::new("H:").color(Color32::from_rgb(220, 220, 220)));
+                                    });
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.h_input)).changed() {
+                                        if let Ok(val) = picker_state.h_input.trim_end_matches('°').trim().parse::<u16>() {
+                                            let new_rgb = hsv_to_rgb(val, current_s, current_v);
+                                            sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
+
+                                    // CMYK: C:
+                                    ui.label(RichText::new("C:").color(Color32::from_rgb(220, 220, 220)));
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.c_input)).changed() {
+                                        if let Ok(c_val) = picker_state.c_input.trim_end_matches('%').trim().parse::<u8>() {
+                                            let (_, m, y, k) = rgb_to_cmyk(r, g, b);
+                                            let new_rgb = cmyk_to_rgb(c_val, m, y, k);
+                                            sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
                                     ui.end_row();
 
-                                    ui.label("S:");
-                                    ui.label(format!("{}%", s));
-                                    ui.label("M:");
-                                    ui.label(format!("{}%", m));
+                                    // 2. HSB: Saturation S:
+                                    ui.horizontal(|ui| {
+                                        if ui.radio_value(&mut picker_state.selected_radio, "S".to_string(), "").clicked() {}
+                                        ui.label(RichText::new("S:").color(Color32::from_rgb(220, 220, 220)));
+                                    });
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.s_input)).changed() {
+                                        if let Ok(s_val) = picker_state.s_input.trim_end_matches('%').trim().parse::<u8>() {
+                                            let new_rgb = hsv_to_rgb(h, s_val, current_v);
+                                            sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
+
+                                    // CMYK: M:
+                                    ui.label(RichText::new("M:").color(Color32::from_rgb(220, 220, 220)));
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.m_input)).changed() {
+                                        if let Ok(m_val) = picker_state.m_input.trim_end_matches('%').trim().parse::<u8>() {
+                                            let (c, _, y, k) = rgb_to_cmyk(r, g, b);
+                                            let new_rgb = cmyk_to_rgb(c, m_val, y, k);
+                                            sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
                                     ui.end_row();
 
-                                    ui.label("B:");
-                                    ui.label(format!("{}%", v));
-                                    ui.label("Y:");
-                                    ui.label(format!("{}%", y));
+                                    // 3. HSB: Brightness B:
+                                    ui.horizontal(|ui| {
+                                        if ui.radio_value(&mut picker_state.selected_radio, "B_val".to_string(), "").clicked() {}
+                                        ui.label(RichText::new("B:").color(Color32::from_rgb(220, 220, 220)));
+                                    });
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.v_input)).changed() {
+                                        if let Ok(v_val) = picker_state.v_input.trim_end_matches('%').trim().parse::<u8>() {
+                                            let new_rgb = hsv_to_rgb(h, current_s, v_val);
+                                            sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
+
+                                    // CMYK: Y:
+                                    ui.label(RichText::new("Y:").color(Color32::from_rgb(220, 220, 220)));
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.y_input)).changed() {
+                                        if let Ok(y_val) = picker_state.y_input.trim_end_matches('%').trim().parse::<u8>() {
+                                            let (c, m, _, k) = rgb_to_cmyk(r, g, b);
+                                            let new_rgb = cmyk_to_rgb(c, m, y_val, k);
+                                            sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
                                     ui.end_row();
 
-                                    // RGB
-                                    ui.label("R:");
-                                    ui.label(format!("{}", r));
-                                    ui.label("K:");
-                                    ui.label(format!("{}%", k));
+                                    // 4. RGB: Red R:
+                                    ui.horizontal(|ui| {
+                                        if ui.radio_value(&mut picker_state.selected_radio, "R".to_string(), "").clicked() {}
+                                        ui.label(RichText::new("R:").color(Color32::from_rgb(220, 220, 220)));
+                                    });
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.r_input)).changed() {
+                                        if let Ok(r_val) = picker_state.r_input.trim().parse::<u8>() {
+                                            let new_rgba = [r_val, g, b, 255];
+                                            sync_color_picker_inputs(picker_state, new_rgba);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
+
+                                    // CMYK: K:
+                                    ui.label(RichText::new("K:").color(Color32::from_rgb(220, 220, 220)));
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.k_input)).changed() {
+                                        if let Ok(k_val) = picker_state.k_input.trim_end_matches('%').trim().parse::<u8>() {
+                                            let (c, m, y, _) = rgb_to_cmyk(r, g, b);
+                                            let new_rgb = cmyk_to_rgb(c, m, y, k_val);
+                                            sync_color_picker_inputs(picker_state, [new_rgb[0], new_rgb[1], new_rgb[2], 255]);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
                                     ui.end_row();
 
-                                    ui.label("G:");
-                                    ui.label(format!("{}", g));
+                                    // 5. RGB: Green G:
+                                    ui.horizontal(|ui| {
+                                        if ui.radio_value(&mut picker_state.selected_radio, "G".to_string(), "").clicked() {}
+                                        ui.label(RichText::new("G:").color(Color32::from_rgb(220, 220, 220)));
+                                    });
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.g_input)).changed() {
+                                        if let Ok(g_val) = picker_state.g_input.trim().parse::<u8>() {
+                                            let new_rgba = [r, g_val, b, 255];
+                                            sync_color_picker_inputs(picker_state, new_rgba);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
                                     ui.label("");
                                     ui.label("");
                                     ui.end_row();
 
-                                    ui.label("B:");
-                                    ui.label(format!("{}", b));
+                                    // 6. RGB: Blue B:
+                                    ui.horizontal(|ui| {
+                                        if ui.radio_value(&mut picker_state.selected_radio, "B".to_string(), "").clicked() {}
+                                        ui.label(RichText::new("B:").color(Color32::from_rgb(220, 220, 220)));
+                                    });
+                                    if ui.add_sized(Vec2::new(55.0, 22.0), egui::TextEdit::singleline(&mut picker_state.b_input)).changed() {
+                                        if let Ok(b_val) = picker_state.b_input.trim().parse::<u8>() {
+                                            let new_rgba = [r, g, b_val, 255];
+                                            sync_color_picker_inputs(picker_state, new_rgba);
+                                            update_theme_property(current_theme, &active_prop, picker_state.temp_color);
+                                            theme_changed = true;
+                                        }
+                                    }
                                     ui.label("");
                                     ui.label("");
                                     ui.end_row();
@@ -659,20 +1057,20 @@ pub fn show_theme_manager_window(
 
                             ui.add_space(8.0);
 
-                            // ENTRADA DE COR HEX (#BC8E1D / #FDC734) COM PARSER EM TEMPO REAL
+                            // CAMPO # HEX (#BC8E1D / #FDC734) COM PARSER E RECÁLCULO INSTANTÂNEO DE TODOS OS CAMPOS
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("#").strong());
-                                if ui.add_sized(Vec2::new(100.0, 24.0), egui::TextEdit::singleline(&mut picker_state.hex_input)).changed() {
+                                ui.label(RichText::new("#").color(Color32::from_rgb(220, 220, 220)).strong());
+                                if ui.add_sized(Vec2::new(100.0, 22.0), egui::TextEdit::singleline(&mut picker_state.hex_input)).changed() {
                                     if let Some([parsed_r, parsed_g, parsed_b]) = parse_hex_color(&picker_state.hex_input) {
-                                        picker_state.temp_color = [parsed_r, parsed_g, parsed_b, 255];
+                                        sync_color_picker_inputs(picker_state, [parsed_r, parsed_g, parsed_b, 255]);
                                         update_theme_property(current_theme, &active_prop, picker_state.temp_color);
                                         theme_changed = true;
                                     }
                                 }
                             });
                         } else {
-                            // ABA 2: COLOR SWATCHES COM TODAS AS OUTRAS CORES DO TEMA PARA COMPARAÇÃO
-                            ui.label(RichText::new("Theme Color Swatches:").strong());
+                            // ABA COLOR SWATCHES
+                            ui.label(RichText::new("Color Swatches:").color(Color32::from_rgb(220, 220, 220)).strong());
                             ui.add_space(4.0);
 
                             let swatches: [(&str, [u8; 4]); 8] = [
@@ -686,7 +1084,7 @@ pub fn show_theme_manager_window(
                                 ("Highlight Text", current_theme.highlight_text),
                             ];
 
-                            egui::ScrollArea::vertical().max_height(140.0).show(ui, |ui| {
+                            egui::ScrollArea::vertical().max_height(160.0).show(ui, |ui| {
                                 for (s_name, s_rgba) in swatches {
                                     let swatch_c32 = Color32::from_rgba_unmultiplied(s_rgba[0], s_rgba[1], s_rgba[2], s_rgba[3]);
                                     ui.horizontal(|ui| {
@@ -694,9 +1092,8 @@ pub fn show_theme_manager_window(
                                         ui.painter().rect_filled(r_box, Rounding::same(3.0), swatch_c32);
                                         ui.painter().rect_stroke(r_box, Rounding::same(3.0), Stroke::new(1.0_f32, Color32::GRAY));
 
-                                        if ui.selectable_label(false, s_name).clicked() || btn_res.clicked() {
-                                            picker_state.temp_color = s_rgba;
-                                            picker_state.hex_input = format!("{:02X}{:02X}{:02X}", s_rgba[0], s_rgba[1], s_rgba[2]);
+                                        if ui.selectable_label(false, RichText::new(s_name).color(Color32::WHITE)).clicked() || btn_res.clicked() {
+                                            sync_color_picker_inputs(picker_state, s_rgba);
                                             update_theme_property(current_theme, &active_prop, picker_state.temp_color);
                                             theme_changed = true;
                                         }

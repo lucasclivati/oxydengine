@@ -51,8 +51,8 @@ pub fn show_accounts_manager_window(
     egui::Window::new(RichText::new("🔗 Connected Accounts & AI Integrations").strong())
         .open(open)
         .resizable(true)
-        .default_width(520.0)
-        .default_height(580.0)
+        .default_width(650.0)
+        .default_height(720.0)
         .show(ctx, |ui| {
             ui.add_space(4.0);
             ui.heading(RichText::new("3D AI & Cloud Account Connections").color(accent_color).strong());
@@ -60,7 +60,7 @@ pub fn show_accounts_manager_window(
             ui.separator();
             ui.add_space(6.0);
 
-            egui::ScrollArea::vertical().max_height(480.0).show(ui, |ui| {
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 // SEÇÃO 1: TRIP3D.AI INTEGRATION
                 Frame::none()
                     .fill(Color32::from_rgba_unmultiplied(32, 36, 48, 220))
