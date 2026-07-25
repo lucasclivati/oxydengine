@@ -15,6 +15,8 @@ pub enum PrimitiveType {
     SkyAtmosphere,
     VolumetricCloud,
     CameraActor,
+    DecalActor,
+    CharacterBP,
     StaticMesh,
 }
 
@@ -33,6 +35,52 @@ impl Default for Transform {
             rotation: Vec3::ZERO,
             scale: Vec3::ONE,
             lock_scale_aspect: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecalComponent {
+    pub decal_size: Vec3,
+    pub fade_screen_size: f32,
+    pub sort_order: i32,
+    pub blend_mode: String,
+    pub texture_name: String,
+}
+
+impl Default for DecalComponent {
+    fn default() -> Self {
+        Self {
+            decal_size: Vec3::new(2.0, 2.0, 2.0),
+            fade_screen_size: 0.01,
+            sort_order: 0,
+            blend_mode: "Translucent".to_string(),
+            texture_name: "T_Decal_AlchemicalSymbol".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CharacterComponent {
+    pub character_class: String,
+    pub max_health: f32,
+    pub current_health: f32,
+    pub walk_speed: f32,
+    pub jump_z_velocity: f32,
+    pub animation_state: String,
+    pub equipped_weapon: String,
+}
+
+impl Default for CharacterComponent {
+    fn default() -> Self {
+        Self {
+            character_class: "BP_DoctorCharacter".to_string(),
+            max_health: 100.0,
+            current_health: 100.0,
+            walk_speed: 600.0,
+            jump_z_velocity: 420.0,
+            animation_state: "Idle_Alchemist".to_string(),
+            equipped_weapon: "W_AlchemicalFlask".to_string(),
         }
     }
 }
@@ -93,39 +141,16 @@ pub struct Actor {
     pub physics: PhysicsComponent,
     pub camera_component: Option<CameraComponent>,
     pub atmosphere_component: Option<AtmosphereComponent>,
+    pub decal_component: Option<DecalComponent>,
+    pub character_component: Option<CharacterComponent>,
 }
 
 impl Actor {
     pub fn new(id: u64, name: &str, primitive: PrimitiveType, position: Vec3, color: [f32; 4]) -> Self {
         let mut physics = PhysicsComponent::default();
-        let is_env = matches!(
-            primitive,
-            PrimitiveType::PointLight | PrimitiveType::DirectionalLight | PrimitiveType::SkyLight |
-            PrimitiveType::ExponentialHeightFog | PrimitiveType::SkyAtmosphere | PrimitiveType::VolumetricCloud |
-            PrimitiveType::Plane | PrimitiveType::CameraActor
-        );
-
-        if is_env {
+        if primitive == PrimitiveType::PointLight || primitive == PrimitiveType::DirectionalLight || primitive == PrimitiveType::CameraActor || primitive == PrimitiveType::DecalActor {
             physics.use_gravity = false;
         }
-
-        let camera_component = if primitive == PrimitiveType::CameraActor {
-            Some(CameraComponent::default())
-        } else {
-            None
-        };
-
-        let atmosphere_component = if matches!(
-            primitive,
-            PrimitiveType::ExponentialHeightFog | PrimitiveType::SkyAtmosphere | PrimitiveType::VolumetricCloud
-        ) {
-            Some(AtmosphereComponent::default())
-        } else {
-            None
-        };
-
-        let mut mat = MaterialInstance::default();
-        mat.color_tint = color;
 
         Self {
             id,
@@ -138,49 +163,58 @@ impl Actor {
                 lock_scale_aspect: false,
             },
             color,
-            material: mat,
+            material: MaterialInstance::alchemical_rust(),
             intensity: 1.0,
             visible: true,
             is_visible: true,
             physics,
-            camera_component,
-            atmosphere_component,
+            camera_component: None,
+            atmosphere_component: None,
+            decal_component: None,
+            character_component: None,
         }
     }
 
-    pub fn new_cube(id: u64, name: &str, position: Vec3, color: [f32; 4]) -> Self {
-        Self::new(id, name, PrimitiveType::Cube, position, color)
+    pub fn new_decal(id: u64, name: &str, position: Vec3) -> Self {
+        let mut actor = Self::new(id, name, PrimitiveType::DecalActor, position, [0.95, 0.55, 0.15, 0.8]);
+        actor.decal_component = Some(DecalComponent::default());
+        actor
     }
 
-    pub fn new_sphere(id: u64, name: &str, position: Vec3, color: [f32; 4]) -> Self {
-        Self::new(id, name, PrimitiveType::Sphere, position, color)
+    pub fn new_doctor_character(id: u64, name: &str, position: Vec3) -> Self {
+        let mut actor = Self::new(id, name, PrimitiveType::CharacterBP, position, [0.2, 0.8, 0.4, 1.0]);
+        actor.transform.scale = Vec3::new(1.0, 2.0, 1.0);
+        actor.character_component = Some(CharacterComponent::default());
+        actor
     }
 
-    pub fn new_light(id: u64, name: &str, position: Vec3, color: [f32; 4], intensity: f32) -> Self {
-        let mut actor = Self::new(id, name, PrimitiveType::PointLight, position, color);
-        actor.intensity = intensity;
+    pub fn new_camera(id: u64, name: &str, position: Vec3) -> Self {
+        let mut actor = Self::new(id, name, PrimitiveType::CameraActor, position, [0.4, 0.6, 1.0, 1.0]);
+        actor.camera_component = Some(CameraComponent::default());
         actor
     }
 
     pub fn new_directional_light(id: u64, name: &str, position: Vec3) -> Self {
         let mut actor = Self::new(id, name, PrimitiveType::DirectionalLight, position, [1.0, 0.95, 0.8, 1.0]);
-        actor.intensity = 2.5;
+        actor.intensity = 10.0;
         actor
     }
 
     pub fn new_fog(id: u64, name: &str, position: Vec3) -> Self {
-        Self::new(id, name, PrimitiveType::ExponentialHeightFog, position, [0.7, 0.8, 0.95, 1.0])
+        let mut actor = Self::new(id, name, PrimitiveType::ExponentialHeightFog, position, [0.6, 0.7, 0.8, 0.5]);
+        actor.atmosphere_component = Some(AtmosphereComponent::default());
+        actor
     }
 
     pub fn new_sky_atmosphere(id: u64, name: &str, position: Vec3) -> Self {
-        Self::new(id, name, PrimitiveType::SkyAtmosphere, position, [0.4, 0.65, 0.95, 1.0])
+        let mut actor = Self::new(id, name, PrimitiveType::SkyAtmosphere, position, [0.3, 0.5, 0.9, 1.0]);
+        actor.atmosphere_component = Some(AtmosphereComponent::default());
+        actor
     }
 
     pub fn new_volumetric_cloud(id: u64, name: &str, position: Vec3) -> Self {
-        Self::new(id, name, PrimitiveType::VolumetricCloud, position, [0.9, 0.9, 0.95, 1.0])
-    }
-
-    pub fn new_camera(id: u64, name: &str, position: Vec3) -> Self {
-        Self::new(id, name, PrimitiveType::CameraActor, position, [0.4, 0.6, 1.0, 1.0])
+        let mut actor = Self::new(id, name, PrimitiveType::VolumetricCloud, position, [0.9, 0.95, 1.0, 0.8]);
+        actor.atmosphere_component = Some(AtmosphereComponent::default());
+        actor
     }
 }
